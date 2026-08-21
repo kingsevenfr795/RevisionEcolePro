@@ -20,21 +20,37 @@
     --accent-gold:#B9862C;
     --rule:#D8D0B8;
     --shadow: 0 1px 0 rgba(32,40,58,0.05), 0 6px 16px rgba(32,40,58,0.08);
+    --dot-color: rgba(32,40,58,0.05);
     --radius: 3px;
     --font-display:'Fraunces', serif;
     --font-body:'IBM Plex Sans', sans-serif;
     --font-read:'Source Serif 4', serif;
     --font-mono:'IBM Plex Mono', monospace;
   }
+  body.dark{
+    --paper:#1B1917;
+    --paper-card:#242220;
+    --ink:#EDE7D9;
+    --ink-soft:#A39C8C;
+    --accent-red:#D9707A;
+    --accent-red-soft:rgba(140,47,57,0.3);
+    --accent-teal:#6FB6A4;
+    --accent-teal-soft:rgba(46,110,98,0.3);
+    --accent-gold:#D9B15C;
+    --rule:#3A362E;
+    --shadow: 0 1px 0 rgba(0,0,0,0.3), 0 6px 20px rgba(0,0,0,0.45);
+    --dot-color: rgba(237,231,217,0.04);
+  }
   *{box-sizing:border-box;}
   html,body{margin:0;padding:0;}
   body{
     background:
-      radial-gradient(circle at 1px 1px, rgba(32,40,58,0.05) 1px, transparent 0) 0 0/22px 22px,
+      radial-gradient(circle at 1px 1px, var(--dot-color) 1px, transparent 0) 0 0/22px 22px,
       var(--paper);
     color:var(--ink);
     font-family:var(--font-body);
     min-height:100vh;
+    transition: background-color .2s ease, color .2s ease;
     padding-bottom:80px;
   }
   a{color:inherit;}
@@ -56,6 +72,32 @@
     font-family:var(--font-mono);font-size:12px;letter-spacing:.14em;
     color:var(--accent-red);background:var(--accent-red-soft);
     padding:3px 7px;border-radius:2px;text-transform:uppercase;
+  }
+  .sync-status{font-family:var(--font-mono);font-size:11.5px;color:var(--ink-soft);}
+  .sync-status.ok{color:var(--accent-teal);}
+  .sync-status.error{color:var(--accent-red);}
+  .user-info{font-family:var(--font-mono);font-size:12px;color:var(--ink-soft);align-self:center;}
+  .streak-pill{
+    font-family:var(--font-mono);font-size:13px;font-weight:600;color:var(--accent-gold);
+    background:var(--accent-red-soft);padding:3px 10px;border-radius:20px;
+  }
+  .icon-btn{font-size:15px;padding:9px 12px;}
+  .idea-row{padding:10px 0;border-bottom:1px solid var(--rule);}
+  .idea-row .idea-text{font-family:var(--font-read);font-size:14.5px;color:var(--ink);}
+  .idea-row .idea-meta{display:flex;justify-content:space-between;align-items:center;margin-top:6px;}
+  .idea-row .idea-author{font-family:var(--font-mono);font-size:11px;color:var(--ink-soft);}
+  .idea-vote-btn{
+    background:none;border:1px solid var(--rule);color:var(--ink-soft);font-family:var(--font-mono);
+    font-size:12px;padding:4px 9px;border-radius:20px;
+  }
+  .idea-vote-btn.voted{background:var(--accent-teal-soft);color:var(--accent-teal);border-color:var(--accent-teal);}
+  select#planner-lesson{
+    width:100%;padding:9px 10px;border:1px solid var(--rule);border-radius:4px;font-family:var(--font-body);font-size:14px;
+    background:var(--paper-card);color:var(--ink);
+  }
+  .plan-day{
+    display:inline-block;font-family:var(--font-mono);font-size:12px;background:var(--accent-teal-soft);color:var(--accent-teal);
+    padding:4px 10px;border-radius:20px;margin:3px 4px 3px 0;
   }
   h1.title{font-family:var(--font-display);font-weight:900;font-size:30px;margin:0;letter-spacing:-.01em;}
   .topbar-actions{display:flex;gap:10px;flex-wrap:wrap;}
@@ -102,6 +144,7 @@
     font-size:11px;text-decoration:underline;text-underline-offset:2px;padding:0;text-align:left;
   }
   .exam-toggle:hover{color:var(--ink);}
+  .exam-countdown{font-family:var(--font-mono);font-size:11.5px;color:var(--accent-gold);margin:2px 0 4px;}
   .level-block + .level-block{margin-top:44px;padding-top:30px;border-top:2px solid var(--ink);}
   .level-heading{
     font-family:var(--font-display);font-weight:900;font-size:26px;margin:26px 0 0;
@@ -114,11 +157,16 @@
   .manage-row .qa{flex:1;font-family:var(--font-read);font-size:14.5px;line-height:1.5;}
   .manage-row .qa .q{color:var(--ink);font-weight:600;}
   .manage-row .qa .a{color:var(--ink-soft);margin-top:2px;}
-  .manage-del{
-    flex-shrink:0;background:none;border:1px solid var(--rule);color:var(--ink-soft);
-    width:30px;height:30px;border-radius:4px;font-size:14px;
+  .written-box textarea{
+    width:100%;min-height:90px;font-family:var(--font-body);font-size:15px;padding:12px;
+    border:1px solid var(--rule);border-radius:4px;resize:vertical;background:var(--paper-card);color:var(--ink);
   }
-  .manage-del:hover{background:var(--accent-red-soft);color:var(--accent-red);border-color:var(--accent-red);}
+  .written-box textarea:disabled{opacity:.7;background:var(--paper);}
+  .manage-diff-toggle{
+    background:none;border:1px solid var(--rule);color:var(--ink-soft);font-family:var(--font-mono);
+    font-size:11px;padding:5px 9px;border-radius:4px;white-space:nowrap;margin-top:4px;
+  }
+  .manage-diff-toggle:hover{background:var(--accent-red-soft);color:var(--accent-red);border-color:var(--accent-red);}
   .trash-link{
     background:none;border:1px solid var(--rule);color:var(--ink-soft);font-family:var(--font-mono);
     font-size:12px;padding:6px 12px;border-radius:4px;
@@ -297,17 +345,25 @@
   <div class="brand">
     <span class="mark">Archives</span>
     <h1 class="title">Cartothèque</h1>
+    <span class="streak-pill" id="streak-pill" style="display:none;"></span>
+    <span class="sync-status" id="sync-status"></span>
   </div>
   <div class="topbar-actions">
-    <button class="btn ghost" id="btn-lessons-trash">🗑️ Récemment supprimés</button>
-    <button class="btn ghost" id="btn-backup">Sauvegarde</button>
-    <button class="btn ghost" id="btn-prompt">Voir le prompt IA</button>
-    <button class="btn primary" id="btn-new">+ Nouvelle leçon</button>
+    <span class="user-info" id="user-info" style="display:none;"></span>
+    <button class="btn ghost icon-btn" id="btn-theme" title="Mode sombre">🌙</button>
+    <button class="btn ghost" id="btn-logout" style="display:none;">Se déconnecter</button>
+    <button class="btn primary" id="btn-google-login">Se connecter avec Google</button>
+    <button class="btn ghost" id="btn-planner" style="display:none;">📅 Planifie tes révisions</button>
+    <button class="btn ghost" id="btn-ideas" style="display:none;">💡 Boîte à idées</button>
+    <button class="btn ghost" id="btn-lessons-trash" style="display:none;">🗑️ Récemment supprimés</button>
+    <button class="btn ghost" id="btn-backup" style="display:none;">Sauvegarde</button>
+    <button class="btn ghost" id="btn-prompt" style="display:none;">Voir le prompt IA</button>
+    <button class="btn primary" id="btn-new" style="display:none;">+ Nouvelle leçon</button>
   </div>
 </div>
 
 <main>
-  <div id="view-dashboard" class="view active"></div>
+  <div id="view-dashboard" class="view active"><div class="empty"><strong>Chargement...</strong></div></div>
 
   <div id="view-quiz" class="view"></div>
 
@@ -321,6 +377,31 @@
 
   <div id="view-lessons-trash" class="view"></div>
 </main>
+
+<!-- Idea box modal -->
+<div class="overlay" id="overlay-ideas">
+  <div class="modal">
+    <h2>💡 Boîte à idées</h2>
+    <p class="hint">Ajout prochainement 🚧 — tu pourras bientôt proposer tes idées de fonctionnalités et voter pour celles des autres.</p>
+    <div class="modal-row"><button class="btn ghost" id="ideas-close">Fermer</button></div>
+  </div>
+</div>
+
+<!-- Revision planner modal -->
+<div class="overlay" id="overlay-planner">
+  <div class="modal">
+    <h2>📅 Planifie tes révisions</h2>
+    <p class="hint">Indique ta leçon et dans combien de jours est ton contrôle : on te propose un rythme de révision.</p>
+    <div class="field"><label>Leçon concernée</label><select id="planner-lesson"></select></div>
+    <div class="field"><label>Contrôle dans combien de jours ?</label><input type="text" id="planner-days" placeholder="Ex: 10"></div>
+    <div class="error-box" id="planner-error"></div>
+    <div class="modal-row" style="justify-content:flex-start;">
+      <button class="btn primary small" id="planner-generate">Générer mon plan</button>
+    </div>
+    <div id="planner-result"></div>
+    <div class="modal-row"><button class="btn ghost" id="planner-close">Fermer</button></div>
+  </div>
+</div>
 
 <!-- Import modal -->
 <div class="overlay" id="overlay-import">
@@ -367,6 +448,9 @@
   </div>
 </div>
 
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-auth-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore-compat.js"></script>
 <script>
 (function(){
   "use strict";
@@ -388,19 +472,34 @@
 
   var STORAGE_KEY = 'cartotheque_data_v1';
 
+  function normalizeData(d){
+    if(!d || typeof d !== 'object') d = { lessons: {} };
+    if(!d.lessons) d.lessons = {};
+    if(!Array.isArray(d.trash)) d.trash = [];
+    Object.keys(d.lessons).forEach(function(id){
+      var lesson = d.lessons[id];
+      if(!Array.isArray(lesson.trash)) lesson.trash = [];
+      if(Array.isArray(lesson.cards)){
+        lesson.cards.forEach(function(c){
+          if(!c.difficulty) c.difficulty = 'normal';
+          if(typeof c.consecutiveFail !== 'number') c.consecutiveFail = 0;
+          if(typeof c.consecutiveSuccess !== 'number') c.consecutiveSuccess = 0;
+        });
+      }
+    });
+    return d;
+  }
   function loadData(){
     var raw = storage.get(STORAGE_KEY);
     var d;
     if(!raw) d = { lessons: {} };
     else { try { d = JSON.parse(raw); } catch(e){ d = { lessons: {} }; } }
-    if(!d.lessons) d.lessons = {};
-    if(!Array.isArray(d.trash)) d.trash = [];
-    Object.keys(d.lessons).forEach(function(id){
-      if(!Array.isArray(d.lessons[id].trash)) d.lessons[id].trash = [];
-    });
-    return d;
+    return normalizeData(d);
   }
-  function saveData(){ storage.set(STORAGE_KEY, JSON.stringify(data)); }
+  function saveData(){
+    storage.set(STORAGE_KEY, JSON.stringify(data));
+    scheduleFirestorePush();
+  }
 
   var data = loadData();
 
@@ -418,6 +517,190 @@
     if(data.trash.length !== beforeLessons) changed = true;
     if(changed) saveData();
   }
+
+  /* ---------- Firebase (auth + Firestore sync) ---------- */
+  var firebaseConfig = {
+    apiKey: "AIzaSyBJJNN7jsnYPW7Ubr_Ocu9ARw6AIToa4NM",
+    authDomain: "cartothequeflashcards.firebaseapp.com",
+    projectId: "cartothequeflashcards",
+    storageBucket: "cartothequeflashcards.firebasestorage.app",
+    messagingSenderId: "934656746689",
+    appId: "1:934656746689:web:099d9deb5fae8927532040",
+    measurementId: "G-NWW1VQ0EBS"
+  };
+  firebase.initializeApp(firebaseConfig);
+  var auth = firebase.auth();
+  var db = firebase.firestore();
+  var currentUser = null;
+
+  function userDocRef(uid){ return db.collection('users').doc(uid); }
+
+  function setSyncStatus(state, msg){
+    var el = document.getElementById('sync-status');
+    if(!el) return;
+    el.className = 'sync-status' + (state === 'ok' ? ' ok' : state === 'error' ? ' error' : '');
+    if(state === 'ok') el.textContent = '☁️ Synchronisé';
+    else if(state === 'syncing') el.textContent = '☁️ Synchro...';
+    else if(state === 'error') el.textContent = '☁️ Erreur de synchro' + (msg ? ' (' + msg + ')' : '');
+    else el.textContent = '';
+  }
+
+  var firestoreState = { unsub: null, pushTimer: null };
+
+  function scheduleFirestorePush(){
+    if(!currentUser) return;
+    if(firestoreState.pushTimer) clearTimeout(firestoreState.pushTimer);
+    firestoreState.pushTimer = setTimeout(pushToFirestore, 900);
+  }
+
+  function pushToFirestore(){
+    if(!currentUser) return;
+    setSyncStatus('syncing');
+    userDocRef(currentUser.uid).set(data).then(function(){
+      setSyncStatus('ok');
+    }).catch(function(err){
+      setSyncStatus('error', err.message);
+    });
+  }
+
+  function refreshVisibleView(){
+    var active = document.querySelector('.view.active');
+    if(!active) return;
+    if(active.id === 'view-dashboard') renderDashboard();
+  }
+
+  function subscribeFirestore(uid){
+    if(firestoreState.unsub) firestoreState.unsub();
+    setSyncStatus('syncing');
+    firestoreState.unsub = userDocRef(uid).onSnapshot(function(doc){
+      if(doc.exists){
+        data = normalizeData(doc.data());
+        storage.set(STORAGE_KEY, JSON.stringify(data));
+        purgeExpiredTrash();
+        if(!session) refreshVisibleView();
+        setSyncStatus('ok');
+      } else {
+        pushToFirestore();
+      }
+    }, function(err){
+      setSyncStatus('error', err.message);
+    });
+  }
+
+  function setAuthUI(user){
+    var loggedIn = !!user;
+    document.getElementById('btn-google-login').style.display = loggedIn ? 'none' : 'inline-flex';
+    document.getElementById('btn-logout').style.display = loggedIn ? 'inline-flex' : 'none';
+    var info = document.getElementById('user-info');
+    info.style.display = loggedIn ? 'inline' : 'none';
+    info.textContent = loggedIn ? (user.email || user.displayName || '') : '';
+    ['btn-lessons-trash','btn-backup','btn-prompt','btn-new','btn-planner','btn-ideas'].forEach(function(id){
+      document.getElementById(id).style.display = loggedIn ? 'inline-flex' : 'none';
+    });
+  }
+
+  function showLoggedOutScreen(){
+    setSyncStatus('');
+    showView('view-dashboard');
+    document.getElementById('view-dashboard').innerHTML =
+      '<div class="empty"><strong>Connecte-toi pour accéder à tes fiches</strong>Tes flashcards sont liées à ton compte Google et se synchronisent automatiquement entre tous tes appareils.</div>';
+  }
+
+  function signInGoogle(){
+    var provider = new firebase.auth.GoogleAuthProvider();
+    auth.signInWithPopup(provider).catch(function(err){ alert('Connexion impossible : ' + err.message); });
+  }
+  function signOutUser(){ auth.signOut(); }
+
+  document.getElementById('btn-google-login').addEventListener('click', signInGoogle);
+  document.getElementById('btn-logout').addEventListener('click', signOutUser);
+
+  auth.onAuthStateChanged(function(user){
+    currentUser = user;
+    setAuthUI(user);
+    if(user){
+      subscribeFirestore(user.uid);
+      purgeExpiredTrash();
+      renderDashboard();
+    } else {
+      if(firestoreState.unsub){ firestoreState.unsub(); firestoreState.unsub = null; }
+      showLoggedOutScreen();
+    }
+  });
+
+  /* ---------- dark mode ---------- */
+  var THEME_KEY = 'cartotheque_theme';
+  function applyTheme(theme){
+    document.body.classList.toggle('dark', theme === 'dark');
+    var btn = document.getElementById('btn-theme');
+    if(btn){ btn.textContent = theme === 'dark' ? '☀️' : '🌙'; btn.title = theme === 'dark' ? 'Mode clair' : 'Mode sombre'; }
+    storage.set(THEME_KEY, theme);
+  }
+  applyTheme(storage.get(THEME_KEY) === 'dark' ? 'dark' : 'light');
+  document.getElementById('btn-theme').addEventListener('click', function(){
+    applyTheme(document.body.classList.contains('dark') ? 'light' : 'dark');
+  });
+
+  /* ---------- idea box (placeholder, coming soon) ---------- */
+  document.getElementById('btn-ideas').addEventListener('click', function(){
+    document.getElementById('overlay-ideas').classList.add('open');
+  });
+  document.getElementById('ideas-close').addEventListener('click', function(){ document.getElementById('overlay-ideas').classList.remove('open'); });
+  document.getElementById('overlay-ideas').addEventListener('click', function(e){ if(e.target === this) this.classList.remove('open'); });
+
+  /* ---------- revision planner ---------- */
+  function buildRevisionPlan(days){
+    var offsets = [0];
+    var step = 1;
+    var next = 0;
+    while(true){
+      next += step;
+      if(next >= days) break;
+      offsets.push(next);
+      step = Math.min(step * 2, 7);
+    }
+    if(days - 1 > offsets[offsets.length-1]) offsets.push(days - 1);
+    if(days >= 3 && offsets.indexOf(days-2) === -1 && days-2 > offsets[offsets.length-2]){
+      offsets.push(days-2);
+    }
+    offsets = offsets.filter(function(o,i,arr){ return arr.indexOf(o) === i && o >= 0; }).sort(function(a,b){ return a-b; });
+    return offsets;
+  }
+  document.getElementById('btn-planner').addEventListener('click', function(){
+    var sel = document.getElementById('planner-lesson');
+    var ids = Object.keys(data.lessons);
+    sel.innerHTML = ids.map(function(id){ return '<option value="' + id + '">' + esc(data.lessons[id].title) + '</option>'; }).join('');
+    document.getElementById('planner-days').value = '';
+    document.getElementById('planner-error').classList.remove('show');
+    document.getElementById('planner-result').innerHTML = '';
+    document.getElementById('overlay-planner').classList.add('open');
+  });
+  document.getElementById('planner-close').addEventListener('click', function(){ document.getElementById('overlay-planner').classList.remove('open'); });
+  document.getElementById('overlay-planner').addEventListener('click', function(e){ if(e.target === this) this.classList.remove('open'); });
+  document.getElementById('planner-generate').addEventListener('click', function(){
+    var lessonId = document.getElementById('planner-lesson').value;
+    var daysRaw = document.getElementById('planner-days').value.trim();
+    var errBox = document.getElementById('planner-error');
+    errBox.classList.remove('show');
+    var days = parseInt(daysRaw, 10);
+    if(!lessonId){ errBox.textContent = 'Choisis une leçon.'; errBox.classList.add('show'); return; }
+    if(!days || days < 1 || days > 180){ errBox.textContent = 'Indique un nombre de jours valide (entre 1 et 180).'; errBox.classList.add('show'); return; }
+    var lesson = data.lessons[lessonId];
+    lesson.examDate = new Date(Date.now() + days*86400000).toISOString();
+    lesson.examPassed = false;
+    saveData();
+
+    var offsets = buildRevisionPlan(days);
+    var pillsHtml = offsets.map(function(o){ return '<span class="plan-day">' + (o === 0 ? 'Aujourd\'hui' : 'J+' + o) + '</span>'; }).join('');
+    document.getElementById('planner-result').innerHTML =
+      '<div style="margin-top:16px;padding-top:14px;border-top:1px solid var(--rule);">' +
+        '<p style="font-family:var(--font-mono);font-size:12px;color:var(--ink-soft);margin:0 0 8px;">Plan pour "' + esc(lesson.title) + '" — contrôle dans ' + days + ' jour(s)</p>' +
+        pillsHtml +
+        '<p style="font-family:var(--font-read);font-size:13.5px;color:var(--ink);margin-top:12px;">Soit ' + offsets.length + ' séance(s) de révision, de plus en plus rapprochées à l\'approche du contrôle pour consolider tes cartes "difficile".</p>' +
+      '</div>';
+    if(document.querySelector('.view.active') && document.querySelector('.view.active').id === 'view-dashboard') renderDashboard();
+  });
+
 
   /* ---------- helpers ---------- */
   function uid(){ return 'id_' + Math.random().toString(36).slice(2,10) + Date.now().toString(36); }
@@ -488,9 +771,19 @@
     if(btn) btn.textContent = '🗑️ Récemment supprimés' + (data.trash.length ? ' (' + data.trash.length + ')' : '');
   }
 
+  function refreshStreakPill(){
+    var el = document.getElementById('streak-pill');
+    if(!el) return;
+    if(!currentUser || Object.keys(data.lessons).length === 0){ el.style.display = 'none'; return; }
+    var streak = computeStats().streak;
+    el.style.display = 'inline-block';
+    el.textContent = '🔥 ' + streak;
+  }
+
   function renderDashboard(){
     purgeExpiredTrash();
     refreshTrashButtonLabel();
+    refreshStreakPill();
     var root = document.getElementById('view-dashboard');
     var ids = Object.keys(data.lessons);
     if(ids.length === 0){
@@ -502,7 +795,7 @@
       '<div class="stats-bar">' +
         '<div class="stat"><span class="stat-num">' + stats.totalCards + '</span><span class="stat-label">cartes au total</span></div>' +
         '<div class="stat"><span class="stat-num">' + (stats.avgPct === null ? '—' : stats.avgPct + '%') + '</span><span class="stat-label">réussite moyenne</span></div>' +
-        '<div class="stat"><span class="stat-num">' + stats.streak + '</span><span class="stat-label">jour(s) de suite</span></div>' +
+        '<div class="stat"><span class="stat-num">🔥 ' + stats.streak + '</span><span class="stat-label">jour(s) de suite</span></div>' +
       '</div>' +
       '<div class="search-row"><input type="text" id="dash-search" placeholder="Chercher une leçon..."></div>' +
       '<div id="dash-lessons"></div>';
@@ -555,12 +848,18 @@
           var badgeHtml = l.examPassed
             ? '<span class="badge badge-done">✓ Contrôle passé</span>'
             : (review ? '<span class="badge badge-review">À réviser</span>' : '');
+          var examHtml = '';
+          if(l.examDate && !l.examPassed){
+            var daysLeft = Math.ceil((new Date(l.examDate) - new Date()) / 86400000);
+            if(daysLeft >= 0) examHtml = '<div class="exam-countdown">📅 Contrôle dans ' + daysLeft + ' j</div>';
+          }
           html += '<div class="card-tile" data-id="' + l.id + '">' +
             '<button class="del-btn" data-del="' + l.id + '" aria-label="Supprimer">✕</button>' +
             '<span class="tab">' + esc(subject) + '</span>' +
             '<div class="body">' +
               '<h3>' + esc(l.title) + '</h3>' +
               (badgeHtml ? '<div>' + badgeHtml + '</div>' : '') +
+              examHtml +
               '<div class="meta-row"><span>' + l.cards.length + ' cartes</span><span class="score-pill ' + pillClass + '">' + pillText + '</span></div>' +
               '<div class="tile-actions">' +
                 '<button class="btn primary small" data-start="' + l.id + '">Réviser</button>' +
@@ -776,6 +1075,7 @@
     var lesson = data.lessons[lessonId];
     var lastHist = lesson.history.length ? lesson.history[lesson.history.length-1] : null;
     var hasMisses = lastHist && lastHist.missedCardIds && lastHist.missedCardIds.length > 0;
+    var easyCount = lesson.cards.filter(function(c){ return c.difficulty === 'facile'; }).length;
 
     var root = document.getElementById('view-quiz');
     root.innerHTML =
@@ -788,40 +1088,68 @@
           (hasMisses ?
           '<div class="toggle-row"><div><div class="label">Réviser seulement mes fautes</div><div class="desc">Ne repose que les ' + lastHist.missedCardIds.length + ' cartes ratées au dernier essai</div></div>' +
             '<label class="switch"><input type="checkbox" id="opt-misses"><span class="slider"></span></label></div>' : '') +
+          '<div class="toggle-row"><div><div class="label">Mode réponse écrite</div><div class="desc">Tape ta réponse au lieu de retourner la carte</div></div>' +
+            '<label class="switch"><input type="checkbox" id="opt-written"><span class="slider"></span></label></div>' +
+          '<div class="toggle-row"><div><div class="label">Cartes inversées</div><div class="desc">Affiche la réponse, retrouve la question</div></div>' +
+            '<label class="switch"><input type="checkbox" id="opt-reversed"><span class="slider"></span></label></div>' +
+          '<div class="toggle-row"><div><div class="label">Suivi de la difficulté</div><div class="desc">Marque auto. "difficile" (3 échecs de suite) et "facile" (5 réussites de suite)</div></div>' +
+            '<label class="switch"><input type="checkbox" id="opt-difficulty" checked><span class="slider"></span></label></div>' +
+          '<div class="toggle-row"><div><div class="label">Inclure les cartes faciles</div><div class="desc">' + (easyCount ? easyCount + ' carte(s) déjà maîtrisée(s), exclues par défaut' : 'Aucune carte facile pour l\'instant') + '</div></div>' +
+            '<label class="switch"><input type="checkbox" id="opt-easy"><span class="slider"></span></label></div>' +
           '<div style="margin-top:20px;"><button class="btn primary" id="quiz-start" style="width:100%;">Commencer (' + lesson.cards.length + ' cartes)</button></div>' +
         '</div>' +
       '</div>';
 
     document.getElementById('quiz-back').addEventListener('click', function(){ showView('view-dashboard'); renderDashboard(); });
     var missesToggle = document.getElementById('opt-misses');
+    var difficultyToggle = document.getElementById('opt-difficulty');
+    var easyToggle = document.getElementById('opt-easy');
     var startBtn = document.getElementById('quiz-start');
-    if(missesToggle){
-      missesToggle.addEventListener('change', function(){
-        var n = missesToggle.checked ? lastHist.missedCardIds.length : lesson.cards.length;
-        startBtn.textContent = 'Commencer (' + n + ' cartes)';
-      });
+
+    function updateCount(){
+      var n;
+      if(missesToggle && missesToggle.checked){
+        n = lastHist.missedCardIds.length;
+      } else {
+        n = lesson.cards.length;
+        if(difficultyToggle.checked && !easyToggle.checked) n -= easyCount;
+      }
+      startBtn.textContent = 'Commencer (' + Math.max(n,0) + ' cartes)';
     }
+    if(missesToggle) missesToggle.addEventListener('change', updateCount);
+    difficultyToggle.addEventListener('change', updateCount);
+    easyToggle.addEventListener('change', updateCount);
+
     startBtn.addEventListener('click', function(){
-      var shuffleOn = document.getElementById('opt-shuffle').checked;
-      var missesOn = missesToggle ? missesToggle.checked : false;
-      startSession(lessonId, shuffleOn, missesOn);
+      startSession(lessonId, {
+        shuffle: document.getElementById('opt-shuffle').checked,
+        missesOnly: missesToggle ? missesToggle.checked : false,
+        written: document.getElementById('opt-written').checked,
+        reversed: document.getElementById('opt-reversed').checked,
+        difficultyTracking: difficultyToggle.checked,
+        includeEasy: easyToggle.checked
+      });
     });
     showView('view-quiz');
   }
 
-  function startSession(lessonId, shuffleOn, missesOnly){
+  function startSession(lessonId, opts){
     var lesson = data.lessons[lessonId];
     var base;
     var mode = 'normal';
-    if(missesOnly){
+    if(opts.missesOnly){
       var lastHist = lesson.history[lesson.history.length-1];
       var missIds = lastHist.missedCardIds;
       base = lesson.cards.filter(function(c){ return missIds.indexOf(c.id) !== -1; });
       mode = 'reviser-fautes';
     } else {
       base = lesson.cards.slice();
+      if(opts.difficultyTracking && !opts.includeEasy){
+        base = base.filter(function(c){ return c.difficulty !== 'facile'; });
+      }
     }
-    if(shuffleOn) base = shuffle(base);
+    if(base.length === 0){ alert('Aucune carte à réviser avec ces réglages.'); return; }
+    if(opts.shuffle) base = shuffle(base);
 
     var results = {};
     base.forEach(function(c){ results[c.id] = null; });
@@ -835,7 +1163,11 @@
       queue: base.map(function(c){ return c.id; }),
       shown: 0,
       currentCardId: null,
-      revealed: false
+      revealed: false,
+      written: opts.written,
+      reversed: opts.reversed,
+      difficultyTracking: opts.difficultyTracking,
+      bonusRepeated: {}
     };
     nextCard();
   }
@@ -860,6 +1192,38 @@
     var masteredCount = Object.keys(session.mastered).length;
     var toReview = session.queue.filter(function(id){ return session.results[id] === 'fail'; }).length;
 
+    var frontText = session.reversed ? card.a : card.q;
+    var backText = session.reversed ? card.q : card.a;
+    var frontLabel = session.reversed ? 'Retrouve la question' : 'Question';
+    var backLabel = session.reversed ? 'Question' : 'Réponse';
+    var diffBadge = '';
+    if(session.difficultyTracking && card.difficulty && card.difficulty !== 'normal'){
+      diffBadge = ' <span class="badge ' + (card.difficulty === 'difficile' ? 'badge-review' : 'badge-done') + '">' + (card.difficulty === 'difficile' ? 'Difficile' : 'Facile') + '</span>';
+    }
+
+    var bodyHtml;
+    if(session.written){
+      bodyHtml =
+        '<div class="written-box">' +
+          '<div class="face" style="position:static;margin-bottom:16px;">' +
+            '<div class="eyebrow">' + frontLabel + diffBadge + '</div><div class="content">' + esc(frontText) + '</div>' +
+          '</div>' +
+          '<textarea id="written-answer" placeholder="Écris ta réponse ici..." rows="4"></textarea>' +
+          '<div id="written-reveal-box"></div>' +
+        '</div>';
+    } else {
+      bodyHtml =
+        '<div class="flip-stage">' +
+          '<div class="flip-card" id="flip-card" tabindex="0" role="button" aria-label="Retourner la carte pour voir la réponse">' +
+            '<div class="face front"><div class="eyebrow">' + frontLabel + diffBadge + '</div><div class="content">' + esc(frontText) + '</div></div>' +
+            '<div class="face back"><div class="eyebrow">' + backLabel + '</div><div class="content">' + esc(backText) + '</div>' +
+              '<div class="stamp success" id="stamp-success">Réussi ✓</div>' +
+              '<div class="stamp fail" id="stamp-fail">Échoué ✗</div>' +
+            '</div>' +
+          '</div>' +
+        '</div>';
+    }
+
     var root = document.getElementById('view-quiz');
     root.innerHTML =
       '<div class="quiz-wrap">' +
@@ -867,17 +1231,9 @@
         '<div class="quiz-head"><h2>' + esc(lesson.title) + '</h2></div>' +
         '<div class="progress-line"><span>Carte ' + session.shown + '</span><span>' + masteredCount + '/' + session.total + ' maîtrisées' + (toReview ? ' · ' + toReview + ' à revoir' : '') + '</span></div>' +
         '<div class="progress-track"><div class="progress-fill" style="width:' + Math.round((masteredCount/session.total)*100) + '%;"></div></div>' +
-        '<div class="flip-stage">' +
-          '<div class="flip-card" id="flip-card" tabindex="0" role="button" aria-label="Retourner la carte pour voir la réponse">' +
-            '<div class="face front"><div class="eyebrow">Question</div><div class="content">' + esc(card.q) + '</div></div>' +
-            '<div class="face back"><div class="eyebrow">Réponse</div><div class="content">' + esc(card.a) + '</div>' +
-              '<div class="stamp success" id="stamp-success">Réussi ✓</div>' +
-              '<div class="stamp fail" id="stamp-fail">Échoué ✗</div>' +
-            '</div>' +
-          '</div>' +
-        '</div>' +
+        bodyHtml +
         '<div id="quiz-controls">' +
-          '<button class="btn primary reveal-btn" id="btn-reveal">Voir la réponse</button>' +
+          '<button class="btn primary reveal-btn" id="btn-reveal">' + (session.written ? 'Valider ma réponse' : 'Voir la réponse') + '</button>' +
         '</div>' +
       '</div>';
 
@@ -888,7 +1244,18 @@
     function revealAnswer(){
       if(session.revealed) return;
       session.revealed = true;
-      document.getElementById('flip-card').classList.add('flipped');
+      if(session.written){
+        var typed = document.getElementById('written-answer').value.trim();
+        document.getElementById('written-answer').disabled = true;
+        document.getElementById('written-reveal-box').innerHTML =
+          '<div class="face" style="position:static;margin-top:12px;background:#FCF9F1;">' +
+            '<div class="eyebrow">' + backLabel + ' attendue</div><div class="content">' + esc(backText) + '</div>' +
+          '</div>' +
+          '<p style="font-family:var(--font-mono);font-size:12px;color:var(--ink-soft);margin-top:10px;">' +
+          (typed ? 'Ta réponse : ' + esc(typed) : 'Tu n\'as rien écrit.') + '</p>';
+      } else {
+        document.getElementById('flip-card').classList.add('flipped');
+      }
       var controls = document.getElementById('quiz-controls');
       controls.innerHTML =
         '<div class="quiz-actions">' +
@@ -900,11 +1267,13 @@
     }
 
     document.getElementById('btn-reveal').addEventListener('click', revealAnswer);
-    var flipCardEl = document.getElementById('flip-card');
-    flipCardEl.addEventListener('click', revealAnswer);
-    flipCardEl.addEventListener('keydown', function(e){
-      if(e.key === 'Enter' || e.key === ' '){ e.preventDefault(); revealAnswer(); }
-    });
+    if(!session.written){
+      var flipCardEl = document.getElementById('flip-card');
+      flipCardEl.addEventListener('click', revealAnswer);
+      flipCardEl.addEventListener('keydown', function(e){
+        if(e.key === 'Enter' || e.key === ' '){ e.preventDefault(); revealAnswer(); }
+      });
+    }
   }
 
   function answerCard(success){
@@ -915,11 +1284,26 @@
     if(session.results[cardId] === null){
       session.results[cardId] = success ? 'success' : 'fail';
     }
+
+    var card = cardById(cardId);
+    if(session.difficultyTracking && card){
+      if(success){ card.consecutiveSuccess = (card.consecutiveSuccess || 0) + 1; card.consecutiveFail = 0; }
+      else { card.consecutiveFail = (card.consecutiveFail || 0) + 1; card.consecutiveSuccess = 0; }
+      if(card.consecutiveFail >= 3) card.difficulty = 'difficile';
+      else if(card.consecutiveSuccess >= 5) card.difficulty = 'facile';
+      else card.difficulty = 'normal';
+    }
+
     if(success){
       session.mastered[cardId] = true;
+      if(session.difficultyTracking && card && card.difficulty === 'difficile' && !session.bonusRepeated[cardId]){
+        session.bonusRepeated[cardId] = true;
+        session.queue.push(cardId);
+      }
     } else {
       session.queue.push(cardId);
     }
+    saveData();
     setTimeout(function(){ nextCard(); }, success ? 420 : 620);
   }
 
@@ -1029,8 +1413,13 @@
     purgeExpiredTrash();
     var root = document.getElementById('view-manage');
     var rowsHtml = lesson.cards.map(function(c){
+      var diffBadge = c.difficulty && c.difficulty !== 'normal'
+        ? '<span class="badge ' + (c.difficulty === 'difficile' ? 'badge-review' : 'badge-done') + '" style="margin-bottom:6px;">' + (c.difficulty === 'difficile' ? 'Difficile' : 'Facile') + '</span>'
+        : '';
       return '<div class="manage-row">' +
-        '<div class="qa"><div class="q">' + esc(c.q) + '</div><div class="a">' + esc(c.a) + '</div></div>' +
+        '<div class="qa">' + diffBadge + '<div class="q">' + esc(c.q) + '</div><div class="a">' + esc(c.a) + '</div>' +
+          '<button class="manage-diff-toggle" data-diff-toggle="' + c.id + '">' + (c.difficulty === 'difficile' ? 'Repasser normal' : 'Marquer difficile') + '</button>' +
+        '</div>' +
         '<button class="manage-del" data-card-del="' + c.id + '" aria-label="Mettre cette carte à la corbeille" title="Mettre à la corbeille">🗑️</button>' +
       '</div>';
     }).join('');
@@ -1074,6 +1463,24 @@
     document.getElementById('manage-back').addEventListener('click', function(){ showView('view-dashboard'); renderDashboard(); });
     document.getElementById('manage-trash-link').addEventListener('click', function(){ renderTrash(lessonId); showView('view-trash'); });
     document.getElementById('manage-add-prompt').addEventListener('click', function(){ openPromptModal(buildAddPrompt(lesson)); });
+
+    root.querySelectorAll('[data-diff-toggle]').forEach(function(btn){
+      btn.addEventListener('click', function(){
+        var cardId = btn.getAttribute('data-diff-toggle');
+        var card = lesson.cards.filter(function(c){ return c.id === cardId; })[0];
+        if(!card) return;
+        if(card.difficulty === 'difficile'){
+          card.difficulty = 'normal';
+          card.consecutiveFail = 0;
+        } else {
+          card.difficulty = 'difficile';
+          card.consecutiveFail = 3;
+          card.consecutiveSuccess = 0;
+        }
+        saveData();
+        renderManage(lessonId);
+      });
+    });
 
     root.querySelectorAll('[data-card-del]').forEach(function(btn){
       btn.addEventListener('click', function(){
@@ -1254,13 +1661,11 @@
   if(USING_FALLBACK){
     var note = document.createElement('div');
     note.style.cssText = 'max-width:980px;margin:14px auto 0;padding:10px 20px;font-family:var(--font-mono);font-size:12px;color:var(--accent-red);';
-    note.textContent = "Aperçu : le stockage persistant du navigateur est bloqué ici, tes données ne survivront pas au rechargement. Une fois cette page hébergée (GitHub Pages, etc.), la sauvegarde sera automatique.";
+    note.textContent = "Aperçu : le stockage persistant du navigateur est bloqué ici, ta session Google ne survivra pas au rechargement. Une fois cette page hébergée (GitHub Pages, etc.), la connexion et la synchro seront automatiques.";
     document.body.insertBefore(note, document.querySelector('main'));
   }
-
-  purgeExpiredTrash();
-  renderDashboard();
 })();
+
 </script>
 </body>
 </html>
