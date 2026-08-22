@@ -353,12 +353,13 @@
     <button class="btn ghost icon-btn" id="btn-theme" title="Mode sombre">🌙</button>
     <button class="btn ghost" id="btn-logout" style="display:none;">Se déconnecter</button>
     <button class="btn primary" id="btn-google-login">Se connecter avec Google</button>
+    <button class="btn ghost" id="btn-pseudo-login">Se connecter avec un pseudo</button>
     <button class="btn ghost" id="btn-planner" style="display:none;">📅 Planifie tes révisions</button>
     <button class="btn ghost" id="btn-ideas" style="display:none;">💡 Boîte à idées</button>
     <button class="btn ghost" id="btn-lessons-trash" style="display:none;">🗑️ Récemment supprimés</button>
     <button class="btn ghost" id="btn-backup" style="display:none;">Sauvegarde</button>
     <button class="btn ghost" id="btn-prompt" style="display:none;">Voir le prompt IA</button>
-    <button class="btn primary" id="btn-new" style="display:none;">+ Nouvelle leçon</button>
+    <button class="btn primary" id="btn-new" style="display:none;">+ Nouvelle flashcard</button>
   </div>
 </div>
 
@@ -377,6 +378,24 @@
 
   <div id="view-lessons-trash" class="view"></div>
 </main>
+
+<!-- Pseudo login modal -->
+<div class="overlay" id="overlay-pseudo">
+  <div class="modal">
+    <h2>Connexion par pseudo</h2>
+    <p class="hint">Pratique si Google est bloqué sur cet ordinateur (ex: PC du lycée). Retiens bien ton pseudo et ton mot de passe : pas de récupération automatique, ce n'est pas un vrai email.</p>
+    <div class="field"><label>Pseudo</label><input type="text" id="pseudo-username" placeholder="ex: kingseven"></div>
+    <div class="field"><label>Mot de passe</label><input type="password" id="pseudo-password" placeholder="6 caractères minimum"></div>
+    <div class="error-box" id="pseudo-error"></div>
+    <div class="modal-row" style="justify-content:space-between;">
+      <button class="btn ghost" id="pseudo-close">Fermer</button>
+      <div style="display:flex;gap:10px;">
+        <button class="btn ghost" id="pseudo-signup">Créer un compte</button>
+        <button class="btn primary" id="pseudo-login">Se connecter</button>
+      </div>
+    </div>
+  </div>
+</div>
 
 <!-- Idea box modal -->
 <div class="overlay" id="overlay-ideas">
@@ -406,9 +425,37 @@
 <!-- Import modal -->
 <div class="overlay" id="overlay-import">
   <div class="modal">
-    <h2>Nouvelle leçon flashcards</h2>
-    <p class="hint">Colle ici le JSON généré par une IA (via le prompt fourni), ou écris-le toi-même en suivant le même format.</p>
-    <textarea id="import-textarea" placeholder='{"title":"...", "subject":"...", "cards":[{"q":"...","a":"..."}]}'></textarea>
+    <h2>Nouvelle flashcard</h2>
+    <p class="hint">Écris tes propres cartes à la main, ou importe-les depuis le JSON généré par une IA — tu peux mélanger les deux avant de créer la leçon.</p>
+    <div class="field"><label>Titre de la leçon</label><input type="text" id="import-title" placeholder="Ex: La Révolution française"></div>
+    <div class="field"><label>Matière</label><input type="text" id="import-subject" placeholder="Ex: Histoire"></div>
+    <div class="field"><label>Niveau</label>
+      <select id="import-level" style="width:100%;padding:9px 10px;border:1px solid var(--rule);border-radius:4px;font-family:var(--font-body);font-size:14px;background:var(--paper-card);color:var(--ink);">
+        <option value="Première">Première</option>
+        <option value="Terminale">Terminale</option>
+      </select>
+    </div>
+
+    <div class="chart-wrap" style="margin-top:6px;">
+      <h4>Cartes ajoutées (<span id="import-card-count">0</span>)</h4>
+      <div id="import-cards-list"></div>
+      <div class="add-card-box">
+        <div class="field"><label>Question</label><textarea id="import-new-q" placeholder="Question..."></textarea></div>
+        <div class="field"><label>Réponse</label><textarea id="import-new-a" placeholder="Réponse..."></textarea></div>
+        <button class="btn primary small" id="import-add-card">+ Ajouter cette carte</button>
+      </div>
+    </div>
+
+    <details style="margin-top:14px;">
+      <summary style="cursor:pointer;font-family:var(--font-mono);font-size:12px;color:var(--ink-soft);">Ou coller un JSON généré par IA</summary>
+      <div style="margin-top:10px;">
+        <textarea id="import-textarea" placeholder='{"title":"...", "subject":"...", "cards":[{"q":"...","a":"..."}]}'></textarea>
+        <div class="modal-row" style="justify-content:flex-start;margin-top:10px;">
+          <button class="btn ghost small" id="import-json-add">Ajouter ces cartes depuis le JSON</button>
+        </div>
+      </div>
+    </details>
+
     <div class="error-box" id="import-error"></div>
     <div class="modal-row">
       <button class="btn ghost" id="import-cancel">Annuler</button>
@@ -590,10 +637,11 @@
   function setAuthUI(user){
     var loggedIn = !!user;
     document.getElementById('btn-google-login').style.display = loggedIn ? 'none' : 'inline-flex';
+    document.getElementById('btn-pseudo-login').style.display = loggedIn ? 'none' : 'inline-flex';
     document.getElementById('btn-logout').style.display = loggedIn ? 'inline-flex' : 'none';
     var info = document.getElementById('user-info');
     info.style.display = loggedIn ? 'inline' : 'none';
-    info.textContent = loggedIn ? (user.email || user.displayName || '') : '';
+    info.textContent = loggedIn ? (user.displayName || user.email || '') : '';
     ['btn-lessons-trash','btn-backup','btn-prompt','btn-new','btn-planner','btn-ideas'].forEach(function(id){
       document.getElementById(id).style.display = loggedIn ? 'inline-flex' : 'none';
     });
@@ -603,7 +651,7 @@
     setSyncStatus('');
     showView('view-dashboard');
     document.getElementById('view-dashboard').innerHTML =
-      '<div class="empty"><strong>Connecte-toi pour accéder à tes fiches</strong>Tes flashcards sont liées à ton compte Google et se synchronisent automatiquement entre tous tes appareils.</div>';
+      '<div class="empty"><strong>Connecte-toi pour accéder à tes fiches</strong>Tes flashcards sont liées à ton compte et se synchronisent automatiquement entre tous tes appareils.</div>';
   }
 
   function signInGoogle(){
@@ -614,6 +662,62 @@
 
   document.getElementById('btn-google-login').addEventListener('click', signInGoogle);
   document.getElementById('btn-logout').addEventListener('click', signOutUser);
+
+  /* ---------- pseudo login (email/password fallback, e.g. when Google is blocked) ---------- */
+  function pseudoToEmail(pseudo){
+    var clean = (pseudo || '').trim().toLowerCase().replace(/[^a-z0-9_.-]/g, '');
+    return clean ? clean + '@cartotheque.local' : null;
+  }
+  function pseudoAuthErrorMessage(err){
+    var map = {
+      'auth/email-already-in-use': 'Ce pseudo est déjà pris.',
+      'auth/weak-password': 'Mot de passe trop court (6 caractères minimum).',
+      'auth/wrong-password': 'Mot de passe incorrect.',
+      'auth/user-not-found': 'Aucun compte avec ce pseudo.',
+      'auth/invalid-email': 'Pseudo invalide, utilise uniquement lettres et chiffres.',
+      'auth/operation-not-allowed': 'La connexion par pseudo n\'est pas encore activée côté Firebase (Authentication → active Email/Password).'
+    };
+    return map[err.code] || err.message;
+  }
+  document.getElementById('btn-pseudo-login').addEventListener('click', function(){
+    document.getElementById('pseudo-error').classList.remove('show');
+    document.getElementById('overlay-pseudo').classList.add('open');
+  });
+  document.getElementById('pseudo-close').addEventListener('click', function(){ document.getElementById('overlay-pseudo').classList.remove('open'); });
+  document.getElementById('overlay-pseudo').addEventListener('click', function(e){ if(e.target === this) this.classList.remove('open'); });
+
+  document.getElementById('pseudo-signup').addEventListener('click', function(){
+    var pseudo = document.getElementById('pseudo-username').value;
+    var pass = document.getElementById('pseudo-password').value;
+    var errBox = document.getElementById('pseudo-error');
+    errBox.classList.remove('show');
+    var email = pseudoToEmail(pseudo);
+    if(!email){ errBox.textContent = 'Choisis un pseudo (lettres et chiffres).'; errBox.classList.add('show'); return; }
+    if(!pass || pass.length < 6){ errBox.textContent = 'Mot de passe trop court (6 caractères minimum).'; errBox.classList.add('show'); return; }
+    auth.createUserWithEmailAndPassword(email, pass).then(function(cred){
+      return cred.user.updateProfile({ displayName: pseudo.trim() });
+    }).then(function(){
+      document.getElementById('overlay-pseudo').classList.remove('open');
+    }).catch(function(err){
+      errBox.textContent = pseudoAuthErrorMessage(err);
+      errBox.classList.add('show');
+    });
+  });
+
+  document.getElementById('pseudo-login').addEventListener('click', function(){
+    var pseudo = document.getElementById('pseudo-username').value;
+    var pass = document.getElementById('pseudo-password').value;
+    var errBox = document.getElementById('pseudo-error');
+    errBox.classList.remove('show');
+    var email = pseudoToEmail(pseudo);
+    if(!email || !pass){ errBox.textContent = 'Renseigne ton pseudo et ton mot de passe.'; errBox.classList.add('show'); return; }
+    auth.signInWithEmailAndPassword(email, pass).then(function(){
+      document.getElementById('overlay-pseudo').classList.remove('open');
+    }).catch(function(err){
+      errBox.textContent = pseudoAuthErrorMessage(err);
+      errBox.classList.add('show');
+    });
+  });
 
   auth.onAuthStateChanged(function(user){
     currentUser = user;
@@ -935,28 +1039,81 @@
     };
   }
 
-  /* ---------- import modal ---------- */
+  /* ---------- import modal (manual card builder + optional JSON import) ---------- */
   var overlayImport = document.getElementById('overlay-import');
+  var importCards = [];
+
+  function renderImportCardsList(){
+    var listEl = document.getElementById('import-cards-list');
+    document.getElementById('import-card-count').textContent = importCards.length;
+    if(importCards.length === 0){
+      listEl.innerHTML = '<p style="color:var(--ink-soft);font-size:13px;">Aucune carte ajoutée pour l\'instant.</p>';
+      return;
+    }
+    listEl.innerHTML = importCards.map(function(c, i){
+      return '<div class="manage-row">' +
+        '<div class="qa"><div class="q">' + esc(c.q) + '</div><div class="a">' + esc(c.a) + '</div></div>' +
+        '<button class="manage-del" data-remove-idx="' + i + '" aria-label="Retirer cette carte">✕</button>' +
+      '</div>';
+    }).join('');
+    listEl.querySelectorAll('[data-remove-idx]').forEach(function(btn){
+      btn.addEventListener('click', function(){
+        importCards.splice(parseInt(btn.getAttribute('data-remove-idx'), 10), 1);
+        renderImportCardsList();
+      });
+    });
+  }
+
   document.getElementById('btn-new').addEventListener('click', function(){
+    importCards = [];
+    document.getElementById('import-title').value = '';
+    document.getElementById('import-subject').value = '';
+    document.getElementById('import-level').value = 'Première';
+    document.getElementById('import-new-q').value = '';
+    document.getElementById('import-new-a').value = '';
     document.getElementById('import-textarea').value = '';
     document.getElementById('import-error').classList.remove('show');
+    renderImportCardsList();
     overlayImport.classList.add('open');
   });
   document.getElementById('import-cancel').addEventListener('click', function(){ overlayImport.classList.remove('open'); });
   overlayImport.addEventListener('click', function(e){ if(e.target === overlayImport) overlayImport.classList.remove('open'); });
 
-  document.getElementById('import-confirm').addEventListener('click', function(){
-    var raw = document.getElementById('import-textarea').value;
+  document.getElementById('import-add-card').addEventListener('click', function(){
+    var qEl = document.getElementById('import-new-q');
+    var aEl = document.getElementById('import-new-a');
+    var q = qEl.value.trim(), a = aEl.value.trim();
+    if(!q || !a) return;
+    importCards.push({ q: q, a: a });
+    qEl.value = ''; aEl.value = '';
+    renderImportCardsList();
+    qEl.focus();
+  });
+
+  document.getElementById('import-json-add').addEventListener('click', function(){
     var errBox = document.getElementById('import-error');
     errBox.classList.remove('show');
+    var raw = document.getElementById('import-textarea').value;
     var result = parseFlashcardsJSON(raw);
     if(!result.ok){ errBox.textContent = result.error; errBox.classList.add('show'); return; }
+    result.cards.forEach(function(c){ importCards.push({ q: c.q, a: c.a }); });
+    if(result.title && !document.getElementById('import-title').value.trim()) document.getElementById('import-title').value = result.title;
+    if(result.subject && !document.getElementById('import-subject').value.trim()) document.getElementById('import-subject').value = result.subject;
+    if(result.level) document.getElementById('import-level').value = result.level;
+    document.getElementById('import-textarea').value = '';
+    renderImportCardsList();
+  });
+
+  document.getElementById('import-confirm').addEventListener('click', function(){
+    var errBox = document.getElementById('import-error');
+    errBox.classList.remove('show');
+    if(importCards.length === 0){ errBox.textContent = 'Ajoute au moins une carte avant de créer la leçon.'; errBox.classList.add('show'); return; }
     var lesson = {
       id: uid(),
-      level: result.level || 'Première',
-      title: result.title || 'Leçon sans titre',
-      subject: result.subject || 'Général',
-      cards: result.cards,
+      level: document.getElementById('import-level').value || 'Première',
+      title: document.getElementById('import-title').value.trim() || 'Leçon sans titre',
+      subject: document.getElementById('import-subject').value.trim() || 'Général',
+      cards: importCards.map(function(c){ return { id: uid(), q: c.q, a: c.a, difficulty: 'normal', consecutiveFail: 0, consecutiveSuccess: 0 }; }),
       history: [],
       trash: [],
       createdAt: Date.now()
