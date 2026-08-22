@@ -81,7 +81,9 @@
     font-family:var(--font-mono);font-size:13px;font-weight:600;color:var(--accent-gold);
     background:var(--accent-red-soft);padding:3px 10px;border-radius:20px;
   }
-  .icon-btn{font-size:15px;padding:9px 12px;}
+  .radio-row{display:flex;align-items:center;gap:8px;padding:8px 0;font-size:14.5px;}
+  .radio-row input{accent-color:var(--accent-teal);width:16px;height:16px;}
+  .radio-row label{cursor:pointer;}
   .idea-row{padding:10px 0;border-bottom:1px solid var(--rule);}
   .idea-row .idea-text{font-family:var(--font-read);font-size:14.5px;color:var(--ink);}
   .idea-row .idea-meta{display:flex;justify-content:space-between;align-items:center;margin-top:6px;}
@@ -359,7 +361,6 @@
     <button class="btn ghost" id="btn-ideas" style="display:none;">💡 Boîte à idées</button>
     <button class="btn ghost" id="btn-lessons-trash" style="display:none;">🗑️ Récemment supprimés</button>
     <button class="btn ghost" id="btn-backup" style="display:none;">Sauvegarde</button>
-    <button class="btn ghost" id="btn-prompt" style="display:none;">Voir le prompt IA</button>
     <button class="btn primary" id="btn-new" style="display:none;">+ Nouvelle flashcard</button>
   </div>
 </div>
@@ -378,6 +379,8 @@
   <div id="view-trash" class="view"></div>
 
   <div id="view-lessons-trash" class="view"></div>
+
+  <div id="view-ai-generator" class="view"></div>
 </main>
 
 <!-- Pseudo login modal -->
@@ -441,10 +444,10 @@
     <div class="field"><label>Titre de la leçon</label><input type="text" id="import-title" placeholder="Ex: La Révolution française"></div>
     <div class="field"><label>Matière</label><input type="text" id="import-subject" placeholder="Ex: Histoire"></div>
     <div class="field"><label>Niveau</label>
-      <select id="import-level" style="width:100%;padding:9px 10px;border:1px solid var(--rule);border-radius:4px;font-family:var(--font-body);font-size:14px;background:var(--paper-card);color:var(--ink);">
-        <option value="Première">Première</option>
-        <option value="Terminale">Terminale</option>
-      </select>
+      <select id="import-level" style="width:100%;padding:9px 10px;border:1px solid var(--rule);border-radius:4px;font-family:var(--font-body);font-size:14px;background:var(--paper-card);color:var(--ink);"></select>
+    </div>
+    <div class="modal-row" style="justify-content:flex-start;margin-top:-8px;">
+      <button class="btn ghost small" id="import-open-ai-generator">🤖 Ajouter des flashcards avec l'IA</button>
     </div>
 
     <div class="chart-wrap" style="margin-top:6px;">
@@ -655,7 +658,7 @@
     var info = document.getElementById('user-info');
     info.style.display = loggedIn ? 'inline' : 'none';
     info.textContent = loggedIn ? (user.displayName || user.email || '') : '';
-    ['btn-lessons-trash','btn-backup','btn-prompt','btn-new','btn-planner','btn-ideas','btn-library'].forEach(function(id){
+    ['btn-lessons-trash','btn-backup','btn-new','btn-planner','btn-ideas','btn-library'].forEach(function(id){
       document.getElementById(id).style.display = loggedIn ? 'inline-flex' : 'none';
     });
   }
@@ -879,6 +882,16 @@
 
   /* ---------- helpers ---------- */
   function uid(){ return 'id_' + Math.random().toString(36).slice(2,10) + Date.now().toString(36); }
+  var LEVELS = ['École primaire','6ème','5ème','4ème','3ème','Seconde','Première','Terminale','Études supérieures'];
+  var LAST_LEVEL_KEY = 'cartotheque_last_level';
+  function getLastLevel(){
+    var v = storage.get(LAST_LEVEL_KEY);
+    return (v && LEVELS.indexOf(v) !== -1) ? v : 'Première';
+  }
+  function setLastLevel(lv){ if(LEVELS.indexOf(lv) !== -1) storage.set(LAST_LEVEL_KEY, lv); }
+  function levelOptionsHtml(selected){
+    return LEVELS.map(function(lv){ return '<option value="' + lv + '"' + (lv === selected ? ' selected' : '') + '>' + lv + '</option>'; }).join('');
+  }
   function shuffle(arr){
     var a = arr.slice();
     for(var i=a.length-1;i>0;i--){
@@ -992,7 +1005,7 @@
       container.innerHTML = '<p style="color:var(--ink-soft);font-size:14px;margin-top:20px;">Aucune leçon ne correspond à "' + esc(search) + '".</p>';
       return;
     }
-    var LEVEL_ORDER = ['Première','Terminale'];
+    var LEVEL_ORDER = LEVELS;
     var byLevel = {};
     ids.forEach(function(id){
       var l = data.lessons[id];
@@ -1139,7 +1152,7 @@
     importCards = [];
     document.getElementById('import-title').value = '';
     document.getElementById('import-subject').value = '';
-    document.getElementById('import-level').value = 'Première';
+    document.getElementById('import-level').innerHTML = levelOptionsHtml(getLastLevel());
     document.getElementById('import-new-q').value = '';
     document.getElementById('import-new-a').value = '';
     document.getElementById('import-textarea').value = '';
@@ -1189,39 +1202,59 @@
       trash: [],
       createdAt: Date.now()
     };
+    setLastLevel(lesson.level);
     data.lessons[lesson.id] = lesson;
     saveData();
     overlayImport.classList.remove('open');
     renderDashboard();
   });
 
-  /* ---------- prompt modal ---------- */
-  var AI_PROMPT = "Tu es un générateur de fiches de révision pour un lycéen en Première. Je vais te donner soit un cours brut, soit des questions/réponses que j'ai déjà rédigées moi-même. Ta tâche : produire des flashcards pour un système de révision, au format JSON strict.\n\n" +
-"Il y a DEUX cas possibles, à distinguer toi-même selon ce que je colle plus bas :\n\n" +
-"CAS 1 — Je te donne déjà des questions/réponses toutes faites (ex: \"Q: ... R: ...\", un tableau, une liste).\n" +
-"→ Tu RESPECTES EXACTEMENT ce que j'ai écrit. Tu ne reformules JAMAIS mes questions ni mes réponses, tu ne corriges pas mon style, tu ne résumes pas : tu les recopies telles quelles dans les champs \"q\" et \"a\". Tu te contentes de les structurer en JSON. Le nombre de cartes = exactement le nombre de questions que j'ai fournies, ni plus ni moins.\n\n" +
-"CAS 2 — Je te donne un cours brut ou des notes non transformées en questions.\n" +
-"→ Tu génères toi-même les questions/réponses. Le NOMBRE de flashcards n'est PAS plafonné : il doit correspondre à la longueur et à la densité réelle du cours (un cours de 2 pages peut donner 10 cartes, un cours de 15 pages peut en donner 60 ou plus si nécessaire). Une carte par notion, date, personnage, cause, conséquence ou définition clé. Chaque question doit être précise et vérifiable (pas de question vague type \"Parle de la Révolution\"). Chaque réponse doit être complète mais concise (1 à 3 phrases). Tu n'inventes aucune information absente du cours fourni.\n\n" +
-"Réponds UNIQUEMENT avec un objet JSON valide, sans aucun texte autour, sans balises markdown (pas de ```), respectant EXACTEMENT ce format :\n\n" +
-"{\n" +
-'  "level": "Première",\n' +
-'  "title": "Titre court de la leçon",\n' +
-'  "subject": "Nom de la matière (ex: Histoire, Français, Philosophie...)",\n' +
-'  "cards": [\n' +
-'    { "q": "Question", "a": "Réponse" }\n' +
-"  ]\n" +
-"}\n\n" +
-"Règles sur le titre et la matière :\n" +
-"- Si je précise moi-même un titre et/ou une matière dans mon message, utilise-les tels quels.\n" +
-"- Si je ne précise NI titre NI matière, ne les invente pas au hasard : déduis-les du contenu du cours si c'est évident, et dans tous les cas termine ta réponse (après le JSON, sur une ligne à part) par une phrase du type \"⚠️ Titre/matière déduits automatiquement, vérifie-les avant d'importer.\" pour que je sache que je dois les vérifier ou les changer moi-même dans l'appli.\n" +
-"- Le champ \"level\" reste \"Première\" sauf si je t'indique explicitement un autre niveau (ex: Terminale).\n\n" +
-"Règle générale : le JSON doit être strictement valide (guillemets doubles, pas de virgule finale, rien avant ni après l'accolade, à part l'éventuelle phrase d'avertissement sur le titre/matière déduits).\n\n" +
-"Voici mon cours, mes notes, ou mes questions/réponses déjà faites :\n" +
-"[COLLE ICI TON COURS OU TES QUESTIONS/RÉPONSES]";
+  /* ---------- custom AI prompt builder ---------- */
+  function buildCustomAIPrompt(o){
+    var lengthMap = {
+      courte: "Chaque réponse doit être très courte : une phrase brève, l'essentiel seulement.",
+      moyenne: "Chaque réponse doit être complète mais concise (1 à 3 phrases).",
+      longue: "Chaque réponse peut être détaillée, jusqu'à un petit paragraphe si nécessaire pour bien couvrir la notion."
+    };
+    var lengthInstruction = lengthMap[o.answerLength] || lengthMap.moyenne;
+
+    var contentInstruction;
+    if(o.contentType === 'ready'){
+      contentInstruction = "Je vais te donner des questions/réponses que j'ai déjà rédigées moi-même. Tu RESPECTES EXACTEMENT ce que j'ai écrit : tu ne reformules JAMAIS mes questions ni mes réponses, tu ne corriges pas mon style, tu ne résumes pas, tu les recopies telles quelles dans les champs \"q\" et \"a\". Le nombre de cartes = exactement le nombre de questions que j'ai fournies, ni plus ni moins.";
+    } else {
+      var countPart = o.questionCount
+        ? "Génère exactement " + o.questionCount + " flashcards."
+        : "Le nombre de flashcards n'est pas plafonné : il doit correspondre à la longueur et à la densité réelle du cours (un cours de 2 pages peut donner 10 cartes, un cours de 15 pages peut en donner 60 ou plus si nécessaire).";
+      contentInstruction = "Je vais te donner un cours brut ou des notes non transformées en questions. Tu génères toi-même les questions/réponses. " + countPart + " Une carte par notion, date, personnage, cause, conséquence ou définition clé. Chaque question doit être précise et vérifiable (pas de question vague type \"Parle de la Révolution\"). " + lengthInstruction + " Tu n'inventes aucune information absente du cours fourni.";
+    }
+
+    var titleVal = o.title || 'DÉDUIS UN TITRE COURT';
+    var subjectVal = o.subject || 'DÉDUIS LA MATIÈRE';
+    var fieldsPart = "{\n" +
+      '  "level": "' + o.level + '",\n' +
+      '  "title": "' + titleVal + '",\n' +
+      '  "subject": "' + subjectVal + '",\n' +
+      '  "cards": [\n' +
+      '    { "q": "Question", "a": "Réponse" }\n' +
+      "  ]\n" +
+      "}";
+
+    var titleSubjectNote = (!o.title || !o.subject)
+      ? "\n\nSi je ne t'ai pas donné de titre et/ou de matière, déduis-les du contenu, et termine ta réponse (après le JSON, sur une ligne à part) par : \"⚠️ Titre/matière déduits automatiquement, vérifie-les avant d'importer.\""
+      : "";
+
+    return "Tu es un générateur de fiches de révision pour un élève de " + o.level + ".\n\n" +
+      contentInstruction + "\n\n" +
+      "Réponds UNIQUEMENT avec un objet JSON valide, sans aucun texte autour, sans balises markdown (pas de ```), respectant EXACTEMENT ce format :\n\n" +
+      fieldsPart + titleSubjectNote + "\n\n" +
+      "Règle générale : le JSON doit être strictement valide (guillemets doubles, pas de virgule finale, rien avant ni après l'accolade" + (titleSubjectNote ? ", à part l'éventuelle phrase d'avertissement" : "") + ").\n\n" +
+      "Voici mon cours, mes notes, ou mes questions/réponses déjà faites :\n" +
+      "[COLLE ICI TON COURS OU TES QUESTIONS/RÉPONSES]";
+  }
 
   function buildAddPrompt(lesson){
     var existingList = lesson.cards.map(function(c){ return "- " + c.q; }).join("\n") || "(aucune carte pour l'instant)";
-    return "Tu es un générateur de fiches de révision pour un lycéen en " + (lesson.level || 'Première') + ". Voici une leçon intitulée \"" + lesson.title + "\" (matière : " + lesson.subject + ") qui contient DÉJÀ les questions suivantes :\n\n" +
+    return "Tu es un générateur de fiches de révision pour un élève de " + (lesson.level || 'Première') + ". Voici une leçon intitulée \"" + lesson.title + "\" (matière : " + lesson.subject + ") qui contient DÉJÀ les questions suivantes :\n\n" +
       existingList + "\n\n" +
       "Je vais te donner soit un cours complet, soit uniquement les notions qui se sont ajoutées récemment (par exemple juste avant un contrôle). Ta tâche : générer UNIQUEMENT des questions/réponses NOUVELLES, qui ne font pas doublon avec la liste ci-dessus. Ne reformule pas et ne recrée pas les questions déjà existantes, même avec des mots différents.\n\n" +
       "Comme pour la création normale : si je te donne déjà des questions/réponses toutes faites, tu les recopies exactement sans les reformuler. Si je te donne du cours brut, tu génères toi-même les questions, sans limite de nombre, proportionnellement à la quantité de nouveau contenu.\n\n" +
@@ -1238,7 +1271,6 @@
     document.getElementById('overlay-prompt').classList.add('open');
   }
 
-  document.getElementById('btn-prompt').addEventListener('click', function(){ openPromptModal(AI_PROMPT); });
   document.getElementById('prompt-close').addEventListener('click', function(){ document.getElementById('overlay-prompt').classList.remove('open'); });
   document.getElementById('overlay-prompt').addEventListener('click', function(e){ if(e.target === this) this.classList.remove('open'); });
   document.getElementById('prompt-copy').addEventListener('click', function(){
@@ -1255,6 +1287,77 @@
       try{ document.execCommand('copy'); done(); }catch(e){}
     }
   });
+
+  /* ---------- AI flashcard generator page ---------- */
+  function renderAIGenerator(prefill){
+    prefill = prefill || {};
+    var root = document.getElementById('view-ai-generator');
+    root.innerHTML =
+      '<div class="quiz-wrap">' +
+        '<button class="back-link" id="ai-gen-back">← Retour</button>' +
+        '<div class="quiz-head"><h2>🤖 Ajouter des flashcards avec l\'IA</h2></div>' +
+        '<div class="setup-box">' +
+          '<div class="field"><label>Niveau</label><select id="ai-level" style="width:100%;padding:9px 10px;border:1px solid var(--rule);border-radius:4px;font-family:var(--font-body);font-size:14px;background:var(--paper-card);color:var(--ink);">' + levelOptionsHtml(prefill.level || getLastLevel()) + '</select></div>' +
+          '<div class="field"><label>Titre (optionnel)</label><input type="text" id="ai-title" placeholder="Laisse vide pour que l\'IA le déduise" value="' + esc(prefill.title || '') + '"></div>' +
+          '<div class="field"><label>Matière (optionnel)</label><input type="text" id="ai-subject" placeholder="Laisse vide pour que l\'IA la déduise" value="' + esc(prefill.subject || '') + '"></div>' +
+
+          '<div class="field"><label>Tu partages...</label>' +
+            '<div class="radio-row"><input type="radio" name="ai-content-type" id="ai-type-raw" value="raw" checked><label for="ai-type-raw">Un cours brut (l\'IA invente les questions)</label></div>' +
+            '<div class="radio-row"><input type="radio" name="ai-content-type" id="ai-type-ready" value="ready"><label for="ai-type-ready">Des questions/réponses déjà rédigées</label></div>' +
+          '</div>' +
+
+          '<div class="field" id="ai-count-field"><label>Nombre de questions souhaité (laisse vide = l\'IA juge selon la longueur du cours)</label><input type="text" id="ai-count" placeholder="Ex: 20"></div>' +
+
+          '<div class="field"><label>Longueur des réponses</label>' +
+            '<div class="radio-row"><input type="radio" name="ai-length" id="ai-len-short" value="courte"><label for="ai-len-short">Courtes</label></div>' +
+            '<div class="radio-row"><input type="radio" name="ai-length" id="ai-len-medium" value="moyenne" checked><label for="ai-len-medium">Moyennes</label></div>' +
+            '<div class="radio-row"><input type="radio" name="ai-length" id="ai-len-long" value="longue"><label for="ai-len-long">Longues</label></div>' +
+          '</div>' +
+
+          '<div style="margin-top:16px;"><button class="btn primary" id="ai-get-prompt" style="width:100%;">Obtenir le prompt</button></div>' +
+        '</div>' +
+        '<p class="hint" style="margin-top:14px;">Une fois le prompt copié, colle-le dans Claude, ChatGPT ou une autre IA, ajoute ton texte à la fin, puis reviens ici et colle le JSON obtenu dans "+ Nouvelle flashcard".</p>' +
+      '</div>';
+
+    document.getElementById('ai-gen-back').addEventListener('click', function(){ showView('view-dashboard'); renderDashboard(); });
+
+    var typeReady = document.getElementById('ai-type-ready');
+    var typeRaw = document.getElementById('ai-type-raw');
+    var countField = document.getElementById('ai-count-field');
+    function syncCountVisibility(){ countField.style.display = typeReady.checked ? 'none' : 'block'; }
+    typeReady.addEventListener('change', syncCountVisibility);
+    typeRaw.addEventListener('change', syncCountVisibility);
+    syncCountVisibility();
+
+    document.getElementById('ai-get-prompt').addEventListener('click', function(){
+      var level = document.getElementById('ai-level').value;
+      setLastLevel(level);
+      var countRaw = document.getElementById('ai-count').value.trim();
+      var count = countRaw ? parseInt(countRaw, 10) : null;
+      var text = buildCustomAIPrompt({
+        level: level,
+        title: document.getElementById('ai-title').value.trim(),
+        subject: document.getElementById('ai-subject').value.trim(),
+        contentType: typeReady.checked ? 'ready' : 'raw',
+        questionCount: (count && count > 0) ? count : null,
+        answerLength: document.querySelector('input[name="ai-length"]:checked').value
+      });
+      openPromptModal(text);
+    });
+  }
+
+  document.getElementById('import-open-ai-generator').addEventListener('click', function(){
+    var prefill = {
+      level: document.getElementById('import-level').value,
+      title: document.getElementById('import-title').value.trim(),
+      subject: document.getElementById('import-subject').value.trim()
+    };
+    overlayImport.classList.remove('open');
+    renderAIGenerator(prefill);
+    showView('view-ai-generator');
+  });
+
+
 
   /* ---------- backup modal ---------- */
   document.getElementById('btn-backup').addEventListener('click', function(){
