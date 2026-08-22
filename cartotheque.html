@@ -355,6 +355,7 @@
     <button class="btn primary" id="btn-google-login">Se connecter avec Google</button>
     <button class="btn ghost" id="btn-pseudo-login">Se connecter avec un pseudo</button>
     <button class="btn ghost" id="btn-planner" style="display:none;">📅 Planifie tes révisions</button>
+    <button class="btn ghost" id="btn-library" style="display:none;">🌍 Bibliothèque partagée</button>
     <button class="btn ghost" id="btn-ideas" style="display:none;">💡 Boîte à idées</button>
     <button class="btn ghost" id="btn-lessons-trash" style="display:none;">🗑️ Récemment supprimés</button>
     <button class="btn ghost" id="btn-backup" style="display:none;">Sauvegarde</button>
@@ -394,6 +395,16 @@
         <button class="btn primary" id="pseudo-login">Se connecter</button>
       </div>
     </div>
+  </div>
+</div>
+
+<!-- Shared library modal -->
+<div class="overlay" id="overlay-library">
+  <div class="modal">
+    <h2>🌍 Bibliothèque partagée</h2>
+    <p class="hint">Des leçons publiées par l'administrateur, à copier dans tes propres fiches pour réviser avec ton propre suivi de score.</p>
+    <div id="library-list"></div>
+    <div class="modal-row"><button class="btn ghost" id="library-close">Fermer</button></div>
   </div>
 </div>
 
@@ -579,6 +590,8 @@
   var auth = firebase.auth();
   var db = firebase.firestore();
   var currentUser = null;
+  var ADMIN_UID = "FOgInT84GPS7ZuXlbmdA0y3dBiP2";
+  function isAdmin(){ return !!currentUser && currentUser.uid === ADMIN_UID; }
 
   function userDocRef(uid){ return db.collection('users').doc(uid); }
 
@@ -623,12 +636,12 @@
       if(doc.exists){
         data = normalizeData(doc.data());
         storage.set(STORAGE_KEY, JSON.stringify(data));
-        purgeExpiredTrash();
-        if(!session) refreshVisibleView();
-        setSyncStatus('ok');
       } else {
         pushToFirestore();
       }
+      purgeExpiredTrash();
+      if(!session) refreshVisibleView();
+      setSyncStatus('ok');
     }, function(err){
       setSyncStatus('error', err.message);
     });
@@ -642,7 +655,7 @@
     var info = document.getElementById('user-info');
     info.style.display = loggedIn ? 'inline' : 'none';
     info.textContent = loggedIn ? (user.displayName || user.email || '') : '';
-    ['btn-lessons-trash','btn-backup','btn-prompt','btn-new','btn-planner','btn-ideas'].forEach(function(id){
+    ['btn-lessons-trash','btn-backup','btn-prompt','btn-new','btn-planner','btn-ideas','btn-library'].forEach(function(id){
       document.getElementById(id).style.display = loggedIn ? 'inline-flex' : 'none';
     });
   }
@@ -722,10 +735,15 @@
   auth.onAuthStateChanged(function(user){
     currentUser = user;
     setAuthUI(user);
+    // Reset local state immediately so a previous account's cached data is never shown
+    // (or accidentally re-saved) under a different account, even for an instant.
+    data = normalizeData({ lessons: {} });
+    storage.set(STORAGE_KEY, JSON.stringify(data));
+    if(session){ session = null; }
     if(user){
+      showView('view-dashboard');
+      document.getElementById('view-dashboard').innerHTML = '<div class="empty"><strong>Chargement de tes fiches...</strong></div>';
       subscribeFirestore(user.uid);
-      purgeExpiredTrash();
-      renderDashboard();
     } else {
       if(firestoreState.unsub){ firestoreState.unsub(); firestoreState.unsub = null; }
       showLoggedOutScreen();
@@ -744,6 +762,59 @@
   document.getElementById('btn-theme').addEventListener('click', function(){
     applyTheme(document.body.classList.contains('dark') ? 'light' : 'dark');
   });
+
+  /* ---------- shared library (admin-published lessons, everyone can copy) ---------- */
+  function loadLibrary(){
+    var listEl = document.getElementById('library-list');
+    listEl.innerHTML = '<p style="color:var(--ink-soft);font-size:13px;">Chargement...</p>';
+    db.collection('publicLessons').orderBy('publishedAt', 'desc').get().then(function(snap){
+      if(snap.empty){ listEl.innerHTML = '<p style="color:var(--ink-soft);font-size:13px;">Aucune leçon publique pour l\'instant.</p>'; return; }
+      var html = '';
+      snap.forEach(function(doc){
+        var pub = doc.data();
+        html += '<div class="manage-row">' +
+          '<div class="qa"><div class="q">' + esc(pub.title) + '</div><div class="a">' + esc(pub.subject) + ' · ' + esc(pub.level || 'Première') + ' · ' + (pub.cards || []).length + ' carte(s)</div></div>' +
+          '<button class="btn primary small" data-copy-public="' + doc.id + '">Copier</button>' +
+        '</div>';
+      });
+      listEl.innerHTML = html;
+      listEl.querySelectorAll('[data-copy-public]').forEach(function(btn){
+        btn.addEventListener('click', function(){ copyPublicLesson(btn.getAttribute('data-copy-public'), btn); });
+      });
+    }).catch(function(err){
+      listEl.innerHTML = '<p style="color:var(--accent-red);font-size:13px;">Erreur : ' + esc(err.message) + '</p>';
+    });
+  }
+  function copyPublicLesson(pubId, btn){
+    if(btn) btn.disabled = true;
+    db.collection('publicLessons').doc(pubId).get().then(function(doc){
+      if(!doc.exists) return;
+      var pub = doc.data();
+      var lesson = {
+        id: uid(),
+        level: pub.level || 'Première',
+        title: pub.title,
+        subject: pub.subject,
+        cards: (pub.cards || []).map(function(c){ return { id: uid(), q: c.q, a: c.a, difficulty: 'normal', consecutiveFail: 0, consecutiveSuccess: 0 }; }),
+        history: [],
+        trash: [],
+        createdAt: Date.now()
+      };
+      data.lessons[lesson.id] = lesson;
+      saveData();
+      document.getElementById('overlay-library').classList.remove('open');
+      renderDashboard();
+    }).catch(function(err){
+      if(btn) btn.disabled = false;
+      alert('Erreur : ' + err.message);
+    });
+  }
+  document.getElementById('btn-library').addEventListener('click', function(){
+    document.getElementById('overlay-library').classList.add('open');
+    loadLibrary();
+  });
+  document.getElementById('library-close').addEventListener('click', function(){ document.getElementById('overlay-library').classList.remove('open'); });
+  document.getElementById('overlay-library').addEventListener('click', function(e){ if(e.target === this) this.classList.remove('open'); });
 
   /* ---------- idea box (placeholder, coming soon) ---------- */
   document.getElementById('btn-ideas').addEventListener('click', function(){
@@ -1589,6 +1660,7 @@
             '<p style="color:var(--ink-soft);font-size:13.5px;margin:0 0 14px;">' + lesson.cards.length + ' carte(s) · ' + esc(lesson.level || 'Première') + ' · ' + esc(lesson.subject) + '</p>' +
           '</div>' +
           '<div style="display:flex;gap:8px;flex-wrap:wrap;">' +
+            (isAdmin() ? '<button class="btn ghost small" id="manage-publish-toggle">' + (lesson.publicId ? '🌍 Retirer du public' : '🌍 Rendre publique') + '</button>' : '') +
             '<button class="trash-link" id="manage-trash-link">🗑️ Corbeille (' + lesson.trash.length + ')</button>' +
             (lesson.cards.length ? '<button class="btn ghost small" id="manage-clear-all">Vider toutes les cartes</button>' : '') +
           '</div>' +
@@ -1620,6 +1692,34 @@
     document.getElementById('manage-back').addEventListener('click', function(){ showView('view-dashboard'); renderDashboard(); });
     document.getElementById('manage-trash-link').addEventListener('click', function(){ renderTrash(lessonId); showView('view-trash'); });
     document.getElementById('manage-add-prompt').addEventListener('click', function(){ openPromptModal(buildAddPrompt(lesson)); });
+
+    var publishBtn = document.getElementById('manage-publish-toggle');
+    if(publishBtn){
+      publishBtn.addEventListener('click', function(){
+        publishBtn.disabled = true;
+        if(lesson.publicId){
+          db.collection('publicLessons').doc(lesson.publicId).delete().then(function(){
+            delete lesson.publicId;
+            saveData();
+            renderManage(lessonId);
+          }).catch(function(err){ publishBtn.disabled = false; alert('Erreur : ' + err.message); });
+        } else {
+          var publicCards = lesson.cards.map(function(c){ return { q: c.q, a: c.a }; });
+          db.collection('publicLessons').doc(lesson.id).set({
+            title: lesson.title,
+            subject: lesson.subject,
+            level: lesson.level || 'Première',
+            cards: publicCards,
+            publishedAt: Date.now(),
+            publishedBy: (currentUser && (currentUser.displayName || currentUser.email)) || 'Admin'
+          }).then(function(){
+            lesson.publicId = lesson.id;
+            saveData();
+            renderManage(lessonId);
+          }).catch(function(err){ publishBtn.disabled = false; alert('Erreur : ' + err.message); });
+        }
+      });
+    }
 
     root.querySelectorAll('[data-diff-toggle]').forEach(function(btn){
       btn.addEventListener('click', function(){
