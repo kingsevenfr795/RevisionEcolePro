@@ -245,6 +245,11 @@
     border:1px solid var(--rule);border-radius:4px;padding:12px;background:#fff;color:var(--ink);
     resize:vertical;line-height:1.5;
   }
+  .chart-wrap textarea{
+    width:100%;font-family:var(--font-mono);font-size:12.5px;
+    border:1px solid var(--rule);border-radius:4px;padding:12px;background:var(--paper-card);color:var(--ink);
+    resize:vertical;line-height:1.5;
+  }
   .modal-row{display:flex;justify-content:flex-end;gap:10px;margin-top:16px;}
   .field{margin-bottom:14px;}
   .field label{display:block;font-family:var(--font-mono);font-size:11px;letter-spacing:.08em;text-transform:uppercase;color:var(--ink-soft);margin-bottom:6px;}
@@ -1357,15 +1362,18 @@
       '<div class="quiz-wrap">' +
         '<button class="back-link" id="ai-prompt-back">← Retour au formulaire</button>' +
         '<div class="quiz-head"><h2>Prompt à copier</h2></div>' +
-        '<p class="hint" style="margin-top:0;">Copie ce texte, colle-le dans une IA (Claude, ChatGPT...), ajoute ton cours ou tes questions à la fin, puis reviens copier sa réponse JSON juste en dessous.</p>' +
-        '<textarea id="ai-prompt-output" readonly style="width:100%;min-height:60vh;font-family:var(--font-mono);font-size:13px;line-height:1.6;padding:16px;border:1px solid var(--rule);border-radius:6px;background:var(--paper-card);color:var(--ink);resize:vertical;"></textarea>' +
-        '<div class="modal-row" style="justify-content:flex-start;align-items:center;">' +
-          '<button class="btn primary" id="ai-copy-prompt-btn">Copier le prompt</button>' +
-          '<span class="copy-feedback" id="ai-copy-feedback">Copié !</span>' +
+        '<div class="chart-wrap">' +
+          '<h4>Prompt à copier</h4>' +
+          '<p class="hint" style="margin:0 0 10px;">Copie ce texte, colle-le dans une IA (Claude, ChatGPT...), ajoute ton cours ou tes questions à la fin, puis reviens copier sa réponse JSON juste en dessous.</p>' +
+          '<textarea id="ai-prompt-output" readonly style="min-height:340px;font-family:var(--font-mono);font-size:12.5px;line-height:1.6;"></textarea>' +
+          '<div class="modal-row" style="justify-content:flex-start;align-items:center;">' +
+            '<button class="btn primary small" id="ai-copy-prompt-btn">Copier le prompt</button>' +
+            '<span class="copy-feedback" id="ai-copy-feedback">Copié !</span>' +
+          '</div>' +
         '</div>' +
-        '<div class="chart-wrap" style="margin-top:26px;">' +
+        '<div class="chart-wrap" style="margin-top:18px;">' +
           '<h4>Coller le JSON obtenu</h4>' +
-          '<textarea id="ai-json-textarea" placeholder=\'{"cards":[{"q":"...","a":"..."}]}\' style="min-height:200px;"></textarea>' +
+          '<textarea id="ai-json-textarea" placeholder=\'{"cards":[{"q":"...","a":"..."}]}\' style="min-height:340px;"></textarea>' +
           '<div class="error-box" id="ai-json-error"></div>' +
           '<button class="btn primary" id="ai-json-confirm" style="width:100%;margin-top:10px;">Créer la leçon</button>' +
         '</div>' +
