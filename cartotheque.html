@@ -362,6 +362,7 @@
     <button class="btn ghost" id="btn-lessons-trash" style="display:none;">🗑️ Récemment supprimés</button>
     <button class="btn ghost" id="btn-backup" style="display:none;">Sauvegarde</button>
     <button class="btn primary" id="btn-new" style="display:none;">+ Nouvelle flashcard</button>
+    <button class="btn ghost" id="btn-new-ai" style="display:none;">🤖 + Nouvelle flashcard avec l'IA</button>
   </div>
 </div>
 
@@ -381,6 +382,8 @@
   <div id="view-lessons-trash" class="view"></div>
 
   <div id="view-ai-generator" class="view"></div>
+
+  <div id="view-json-create" class="view"></div>
 </main>
 
 <!-- Pseudo login modal -->
@@ -446,9 +449,6 @@
     <div class="field"><label>Niveau</label>
       <select id="import-level" style="width:100%;padding:9px 10px;border:1px solid var(--rule);border-radius:4px;font-family:var(--font-body);font-size:14px;background:var(--paper-card);color:var(--ink);"></select>
     </div>
-    <div class="modal-row" style="justify-content:flex-start;margin-top:-8px;">
-      <button class="btn ghost small" id="import-open-ai-generator">🤖 Ajouter des flashcards avec l'IA</button>
-    </div>
 
     <div class="chart-wrap" style="margin-top:6px;">
       <h4>Cartes ajoutées (<span id="import-card-count">0</span>)</h4>
@@ -487,7 +487,7 @@
     <div class="modal-row" style="align-items:center;">
       <span class="copy-feedback" id="copy-feedback">Copié !</span>
       <button class="btn ghost" id="prompt-close">Fermer</button>
-      <button class="btn primary" id="prompt-copy">Copier le prompt</button>
+      <button class="btn primary" id="prompt-copy">Copier la leçon</button>
     </div>
   </div>
 </div>
@@ -658,7 +658,7 @@
     var info = document.getElementById('user-info');
     info.style.display = loggedIn ? 'inline' : 'none';
     info.textContent = loggedIn ? (user.displayName || user.email || '') : '';
-    ['btn-lessons-trash','btn-backup','btn-new','btn-planner','btn-ideas','btn-library'].forEach(function(id){
+    ['btn-lessons-trash','btn-backup','btn-new','btn-new-ai','btn-planner','btn-ideas','btn-library'].forEach(function(id){
       document.getElementById(id).style.display = loggedIn ? 'inline-flex' : 'none';
     });
   }
@@ -1243,8 +1243,10 @@
       ? "\n\nSi je ne t'ai pas donné de titre et/ou de matière, déduis-les du contenu, et termine ta réponse (après le JSON, sur une ligne à part) par : \"⚠️ Titre/matière déduits automatiquement, vérifie-les avant d'importer.\""
       : "";
 
+    var notePart = o.note ? "\n\nNote supplémentaire de ma part, à respecter en priorité : " + o.note : "";
+
     return "Tu es un générateur de fiches de révision pour un élève de " + o.level + ".\n\n" +
-      contentInstruction + "\n\n" +
+      contentInstruction + notePart + "\n\n" +
       "Réponds UNIQUEMENT avec un objet JSON valide, sans aucun texte autour, sans balises markdown (pas de ```), respectant EXACTEMENT ce format :\n\n" +
       fieldsPart + titleSubjectNote + "\n\n" +
       "Règle générale : le JSON doit être strictement valide (guillemets doubles, pas de virgule finale, rien avant ni après l'accolade" + (titleSubjectNote ? ", à part l'éventuelle phrase d'avertissement" : "") + ").\n\n" +
@@ -1265,10 +1267,12 @@
       "[COLLE ICI]";
   }
 
-  function openPromptModal(text){
+  var promptModalNavigateCallback = null;
+  function openPromptModal(text, navigateCallback){
     document.getElementById('prompt-textarea').value = text;
     document.getElementById('copy-feedback').classList.remove('show');
     document.getElementById('overlay-prompt').classList.add('open');
+    promptModalNavigateCallback = navigateCallback || null;
   }
 
   document.getElementById('prompt-close').addEventListener('click', function(){ document.getElementById('overlay-prompt').classList.remove('open'); });
@@ -1279,7 +1283,13 @@
     var done = function(){
       var fb = document.getElementById('copy-feedback');
       fb.classList.add('show');
-      setTimeout(function(){ fb.classList.remove('show'); }, 1800);
+      setTimeout(function(){ fb.classList.remove('show'); }, 1200);
+      if(promptModalNavigateCallback){
+        var cb = promptModalNavigateCallback;
+        promptModalNavigateCallback = null;
+        document.getElementById('overlay-prompt').classList.remove('open');
+        cb();
+      }
     };
     if(navigator.clipboard && navigator.clipboard.writeText){
       navigator.clipboard.writeText(ta.value).then(done).catch(function(){ try{ document.execCommand('copy'); done(); }catch(e){} });
@@ -1287,6 +1297,7 @@
       try{ document.execCommand('copy'); done(); }catch(e){}
     }
   });
+
 
   /* ---------- AI flashcard generator page ---------- */
   function renderAIGenerator(prefill){
@@ -1314,9 +1325,11 @@
             '<div class="radio-row"><input type="radio" name="ai-length" id="ai-len-long" value="longue"><label for="ai-len-long">Longues</label></div>' +
           '</div>' +
 
+          '<div class="field"><label>Note additionnelle pour l\'IA (optionnel)</label><textarea id="ai-note" placeholder="Ex: insiste sur les dates, évite le jargon, focus sur les causes..." style="min-height:60px;"></textarea></div>' +
+
           '<div style="margin-top:16px;"><button class="btn primary" id="ai-get-prompt" style="width:100%;">Obtenir le prompt</button></div>' +
         '</div>' +
-        '<p class="hint" style="margin-top:14px;">Une fois le prompt copié, colle-le dans Claude, ChatGPT ou une autre IA, ajoute ton texte à la fin, puis reviens ici et colle le JSON obtenu dans "+ Nouvelle flashcard".</p>' +
+        '<p class="hint" style="margin-top:14px;">Une fois le prompt copié, colle-le dans Claude, ChatGPT ou une autre IA, ajoute ton cours à la fin, puis reviens coller le JSON obtenu ici.</p>' +
       '</div>';
 
     document.getElementById('ai-gen-back').addEventListener('click', function(){ showView('view-dashboard'); renderDashboard(); });
@@ -1331,33 +1344,81 @@
 
     document.getElementById('ai-get-prompt').addEventListener('click', function(){
       var level = document.getElementById('ai-level').value;
+      var title = document.getElementById('ai-title').value.trim();
+      var subject = document.getElementById('ai-subject').value.trim();
       setLastLevel(level);
       var countRaw = document.getElementById('ai-count').value.trim();
       var count = countRaw ? parseInt(countRaw, 10) : null;
       var text = buildCustomAIPrompt({
         level: level,
-        title: document.getElementById('ai-title').value.trim(),
-        subject: document.getElementById('ai-subject').value.trim(),
+        title: title,
+        subject: subject,
         contentType: typeReady.checked ? 'ready' : 'raw',
         questionCount: (count && count > 0) ? count : null,
-        answerLength: document.querySelector('input[name="ai-length"]:checked').value
+        answerLength: document.querySelector('input[name="ai-length"]:checked').value,
+        note: document.getElementById('ai-note').value.trim()
       });
-      openPromptModal(text);
+      openPromptModal(text, function(){
+        renderJSONCreatePage({ level: level, title: title, subject: subject });
+        showView('view-json-create');
+      });
     });
   }
 
-  document.getElementById('import-open-ai-generator').addEventListener('click', function(){
-    var prefill = {
-      level: document.getElementById('import-level').value,
-      title: document.getElementById('import-title').value.trim(),
-      subject: document.getElementById('import-subject').value.trim()
-    };
-    overlayImport.classList.remove('open');
-    renderAIGenerator(prefill);
+  document.getElementById('btn-new-ai').addEventListener('click', function(){
+    renderAIGenerator({});
     showView('view-ai-generator');
   });
 
+  /* ---------- dedicated JSON-only creation page (reached after "Copier la leçon") ---------- */
+  function renderJSONCreatePage(prefill){
+    prefill = prefill || {};
+    var root = document.getElementById('view-json-create');
+    root.innerHTML =
+      '<div class="quiz-wrap">' +
+        '<button class="back-link" id="json-create-back">← Retour</button>' +
+        '<div class="quiz-head"><h2>Coller le JSON généré par l\'IA</h2></div>' +
+        '<div class="setup-box">' +
+          '<p class="hint" style="margin-top:0;">Retourne dans ta conversation avec l\'IA, copie sa réponse JSON, et colle-la ci-dessous.</p>' +
+          '<div class="field"><label>Niveau</label><select id="json-level" style="width:100%;padding:9px 10px;border:1px solid var(--rule);border-radius:4px;font-family:var(--font-body);font-size:14px;background:var(--paper-card);color:var(--ink);">' + levelOptionsHtml(prefill.level || getLastLevel()) + '</select></div>' +
+          '<div class="field"><label>Titre</label><input type="text" id="json-title" placeholder="Repris du JSON si laissé vide" value="' + esc(prefill.title || '') + '"></div>' +
+          '<div class="field"><label>Matière</label><input type="text" id="json-subject" placeholder="Reprise du JSON si laissé vide" value="' + esc(prefill.subject || '') + '"></div>' +
+          '<div class="field"><label>JSON</label><textarea id="json-create-textarea" placeholder=\'{"cards":[{"q":"...","a":"..."}]}\' style="min-height:240px;"></textarea></div>' +
+          '<div class="error-box" id="json-create-error"></div>' +
+          '<button class="btn primary" id="json-create-confirm" style="width:100%;">Créer la leçon</button>' +
+        '</div>' +
+      '</div>';
 
+    document.getElementById('json-create-back').addEventListener('click', function(){ showView('view-dashboard'); renderDashboard(); });
+
+    document.getElementById('json-create-confirm').addEventListener('click', function(){
+      var errBox = document.getElementById('json-create-error');
+      errBox.classList.remove('show');
+      var raw = document.getElementById('json-create-textarea').value;
+      var result = parseFlashcardsJSON(raw);
+      if(!result.ok){ errBox.textContent = result.error; errBox.classList.add('show'); return; }
+
+      var level = document.getElementById('json-level').value || result.level || 'Première';
+      var title = document.getElementById('json-title').value.trim() || result.title || 'Leçon sans titre';
+      var subject = document.getElementById('json-subject').value.trim() || result.subject || 'Général';
+
+      var lesson = {
+        id: uid(),
+        level: level,
+        title: title,
+        subject: subject,
+        cards: result.cards,
+        history: [],
+        trash: [],
+        createdAt: Date.now()
+      };
+      setLastLevel(level);
+      data.lessons[lesson.id] = lesson;
+      saveData();
+      showView('view-dashboard');
+      renderDashboard();
+    });
+  }
 
   /* ---------- backup modal ---------- */
   document.getElementById('btn-backup').addEventListener('click', function(){
