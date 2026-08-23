@@ -81,6 +81,20 @@
     font-family:var(--font-mono);font-size:13px;font-weight:600;color:var(--accent-gold);
     background:var(--accent-red-soft);padding:3px 10px;border-radius:20px;
   }
+  .dropdown{position:relative;}
+  .dropdown-menu{
+    display:none;position:absolute;top:calc(100% + 6px);right:0;
+    background:var(--paper-card);border:1px solid var(--rule);border-radius:6px;
+    box-shadow:var(--shadow);min-width:230px;z-index:40;overflow:hidden;
+  }
+  .dropdown-menu.open{display:block;}
+  .dropdown-item{
+    display:block;width:100%;text-align:left;background:none;border:none;
+    padding:11px 14px;font-size:13.5px;color:var(--ink);font-family:var(--font-body);
+    border-bottom:1px solid var(--rule);cursor:pointer;
+  }
+  .dropdown-item:last-child{border-bottom:none;}
+  .dropdown-item:hover{background:var(--rule);}
   .radio-row{display:flex;align-items:center;gap:8px;padding:8px 0;font-size:14.5px;}
   .radio-row input{accent-color:var(--accent-teal);width:16px;height:16px;}
   .radio-row label{cursor:pointer;}
@@ -361,13 +375,20 @@
     <button class="btn ghost" id="btn-logout" style="display:none;">Se déconnecter</button>
     <button class="btn primary" id="btn-google-login">Se connecter avec Google</button>
     <button class="btn ghost" id="btn-pseudo-login">Se connecter avec un pseudo</button>
-    <button class="btn ghost" id="btn-planner" style="display:none;">📅 Planifie tes révisions</button>
-    <button class="btn ghost" id="btn-library" style="display:none;">🌍 Bibliothèque partagée</button>
-    <button class="btn ghost" id="btn-ideas" style="display:none;">💡 Boîte à idées</button>
-    <button class="btn ghost" id="btn-lessons-trash" style="display:none;">🗑️ Récemment supprimés</button>
-    <button class="btn ghost" id="btn-backup" style="display:none;">Sauvegarde</button>
-    <button class="btn primary" id="btn-new" style="display:none;">+ Nouvelle flashcard</button>
+
+    <div class="dropdown" id="tools-dropdown" style="display:none;">
+      <button class="btn ghost" id="btn-tools-toggle">⚙️ Outils ▾</button>
+      <div class="dropdown-menu" id="tools-menu">
+        <button class="dropdown-item" id="btn-planner">📅 Planifie tes révisions</button>
+        <button class="dropdown-item" id="btn-library">🌍 Bibliothèque partagée</button>
+        <button class="dropdown-item" id="btn-ideas">💡 Boîte à idées</button>
+        <button class="dropdown-item" id="btn-lessons-trash">🗑️ Récemment supprimés</button>
+        <button class="dropdown-item" id="btn-backup">Sauvegarde</button>
+      </div>
+    </div>
+
     <button class="btn ghost" id="btn-new-ai" style="display:none;">🤖 + Nouvelle flashcard avec l'IA</button>
+    <button class="btn primary" id="btn-new" style="display:none;">+ Nouvelle flashcard</button>
   </div>
 </div>
 
@@ -661,10 +682,26 @@
     var info = document.getElementById('user-info');
     info.style.display = loggedIn ? 'inline' : 'none';
     info.textContent = loggedIn ? (user.displayName || user.email || '') : '';
-    ['btn-lessons-trash','btn-backup','btn-new','btn-new-ai','btn-planner','btn-ideas','btn-library'].forEach(function(id){
+    document.getElementById('tools-dropdown').style.display = loggedIn ? 'inline-block' : 'none';
+    ['btn-new','btn-new-ai'].forEach(function(id){
       document.getElementById(id).style.display = loggedIn ? 'inline-flex' : 'none';
     });
+    if(!loggedIn) document.getElementById('tools-menu').classList.remove('open');
   }
+
+  document.getElementById('btn-tools-toggle').addEventListener('click', function(e){
+    e.stopPropagation();
+    document.getElementById('tools-menu').classList.toggle('open');
+  });
+  document.addEventListener('click', function(e){
+    var menu = document.getElementById('tools-menu');
+    if(menu.classList.contains('open') && !menu.contains(e.target) && e.target.id !== 'btn-tools-toggle'){
+      menu.classList.remove('open');
+    }
+  });
+  document.querySelectorAll('.dropdown-item').forEach(function(btn){
+    btn.addEventListener('click', function(){ document.getElementById('tools-menu').classList.remove('open'); });
+  });
 
   function showLoggedOutScreen(){
     setSyncStatus('');
