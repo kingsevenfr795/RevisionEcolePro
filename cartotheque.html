@@ -1319,7 +1319,6 @@
 
           '<div style="margin-top:16px;"><button class="btn primary" id="ai-get-prompt" style="width:100%;">Obtenir le prompt</button></div>' +
         '</div>' +
-        '<div id="ai-result-section"></div>' +
       '</div>';
 
     document.getElementById('ai-gen-back').addEventListener('click', function(){ showView('view-dashboard'); renderDashboard(); });
@@ -1348,71 +1347,77 @@
         answerLength: document.querySelector('input[name="ai-length"]:checked').value,
         note: document.getElementById('ai-note').value.trim()
       });
+      renderAIPromptPage({ level: level, title: title, subject: subject, text: text });
+    });
+  }
 
-      var resultEl = document.getElementById('ai-result-section');
-      resultEl.innerHTML =
-        '<div class="chart-wrap" style="margin-top:22px;">' +
-          '<h4>Prompt à copier</h4>' +
-          '<p class="hint" style="margin:0 0 10px;">Copie ce texte, colle-le dans une IA (Claude, ChatGPT...), ajoute ton cours ou tes questions à la fin, puis reviens copier sa réponse JSON juste en dessous.</p>' +
-          '<textarea id="ai-prompt-output" readonly style="min-height:220px;font-family:var(--font-mono);font-size:12.5px;"></textarea>' +
-          '<div class="modal-row" style="justify-content:flex-start;align-items:center;">' +
-            '<button class="btn primary small" id="ai-copy-prompt-btn">Copier le prompt</button>' +
-            '<span class="copy-feedback" id="ai-copy-feedback">Copié !</span>' +
-          '</div>' +
+  function renderAIPromptPage(state){
+    var root = document.getElementById('view-ai-generator');
+    root.innerHTML =
+      '<div class="quiz-wrap">' +
+        '<button class="back-link" id="ai-prompt-back">← Retour au formulaire</button>' +
+        '<div class="quiz-head"><h2>Prompt à copier</h2></div>' +
+        '<p class="hint" style="margin-top:0;">Copie ce texte, colle-le dans une IA (Claude, ChatGPT...), ajoute ton cours ou tes questions à la fin, puis reviens copier sa réponse JSON juste en dessous.</p>' +
+        '<textarea id="ai-prompt-output" readonly style="width:100%;min-height:60vh;font-family:var(--font-mono);font-size:13px;line-height:1.6;padding:16px;border:1px solid var(--rule);border-radius:6px;background:var(--paper-card);color:var(--ink);resize:vertical;"></textarea>' +
+        '<div class="modal-row" style="justify-content:flex-start;align-items:center;">' +
+          '<button class="btn primary" id="ai-copy-prompt-btn">Copier le prompt</button>' +
+          '<span class="copy-feedback" id="ai-copy-feedback">Copié !</span>' +
         '</div>' +
-        '<div class="chart-wrap" style="margin-top:18px;">' +
+        '<div class="chart-wrap" style="margin-top:26px;">' +
           '<h4>Coller le JSON obtenu</h4>' +
           '<textarea id="ai-json-textarea" placeholder=\'{"cards":[{"q":"...","a":"..."}]}\' style="min-height:200px;"></textarea>' +
           '<div class="error-box" id="ai-json-error"></div>' +
           '<button class="btn primary" id="ai-json-confirm" style="width:100%;margin-top:10px;">Créer la leçon</button>' +
-        '</div>';
+        '</div>' +
+      '</div>';
 
-      document.getElementById('ai-prompt-output').value = text;
+    document.getElementById('ai-prompt-output').value = state.text;
 
-      document.getElementById('ai-copy-prompt-btn').addEventListener('click', function(){
-        var ta = document.getElementById('ai-prompt-output');
-        ta.select();
-        var done = function(){
-          var fb = document.getElementById('ai-copy-feedback');
-          fb.classList.add('show');
-          setTimeout(function(){ fb.classList.remove('show'); }, 1600);
-        };
-        if(navigator.clipboard && navigator.clipboard.writeText){
-          navigator.clipboard.writeText(ta.value).then(done).catch(function(){ try{ document.execCommand('copy'); done(); }catch(e){} });
-        } else {
-          try{ document.execCommand('copy'); done(); }catch(e){}
-        }
-      });
+    document.getElementById('ai-prompt-back').addEventListener('click', function(){
+      renderAIGenerator({ level: state.level, title: state.title, subject: state.subject });
+    });
 
-      document.getElementById('ai-json-confirm').addEventListener('click', function(){
-        var errBox = document.getElementById('ai-json-error');
-        errBox.classList.remove('show');
-        var raw = document.getElementById('ai-json-textarea').value;
-        var result = parseFlashcardsJSON(raw);
-        if(!result.ok){ errBox.textContent = result.error; errBox.classList.add('show'); return; }
+    document.getElementById('ai-copy-prompt-btn').addEventListener('click', function(){
+      var ta = document.getElementById('ai-prompt-output');
+      ta.select();
+      var done = function(){
+        var fb = document.getElementById('ai-copy-feedback');
+        fb.classList.add('show');
+        setTimeout(function(){ fb.classList.remove('show'); }, 1600);
+      };
+      if(navigator.clipboard && navigator.clipboard.writeText){
+        navigator.clipboard.writeText(ta.value).then(done).catch(function(){ try{ document.execCommand('copy'); done(); }catch(e){} });
+      } else {
+        try{ document.execCommand('copy'); done(); }catch(e){}
+      }
+    });
 
-        var finalLevel = document.getElementById('ai-level').value || result.level || 'Première';
-        var finalTitle = document.getElementById('ai-title').value.trim() || result.title || 'Leçon sans titre';
-        var finalSubject = document.getElementById('ai-subject').value.trim() || result.subject || 'Général';
+    document.getElementById('ai-json-confirm').addEventListener('click', function(){
+      var errBox = document.getElementById('ai-json-error');
+      errBox.classList.remove('show');
+      var raw = document.getElementById('ai-json-textarea').value;
+      var result = parseFlashcardsJSON(raw);
+      if(!result.ok){ errBox.textContent = result.error; errBox.classList.add('show'); return; }
 
-        var lesson = {
-          id: uid(),
-          level: finalLevel,
-          title: finalTitle,
-          subject: finalSubject,
-          cards: result.cards,
-          history: [],
-          trash: [],
-          createdAt: Date.now()
-        };
-        setLastLevel(finalLevel);
-        data.lessons[lesson.id] = lesson;
-        saveData();
-        showView('view-dashboard');
-        renderDashboard();
-      });
+      var finalLevel = state.level || result.level || 'Première';
+      var finalTitle = state.title || result.title || 'Leçon sans titre';
+      var finalSubject = state.subject || result.subject || 'Général';
 
-      resultEl.scrollIntoView({ behavior: 'smooth', block: 'start' });
+      var lesson = {
+        id: uid(),
+        level: finalLevel,
+        title: finalTitle,
+        subject: finalSubject,
+        cards: result.cards,
+        history: [],
+        trash: [],
+        createdAt: Date.now()
+      };
+      setLastLevel(finalLevel);
+      data.lessons[lesson.id] = lesson;
+      saveData();
+      showView('view-dashboard');
+      renderDashboard();
     });
   }
 
