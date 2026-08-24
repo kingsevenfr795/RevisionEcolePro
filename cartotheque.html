@@ -660,11 +660,15 @@
     if(firestoreState.unsub) firestoreState.unsub();
     setSyncStatus('syncing');
     firestoreState.unsub = userDocRef(uid).onSnapshot(function(doc){
+      // Only ever load FROM Firestore here. Never auto-write back on this callback,
+      // even if the doc briefly appears missing (can happen transiently from local
+      // cache before the server confirms) — writing here risks overwriting real
+      // data with whatever `data` happens to hold at that instant. The doc gets
+      // created naturally the first time the user actually does something
+      // (saveData -> pushToFirestore), which is always intentional.
       if(doc.exists){
         data = normalizeData(doc.data());
         storage.set(STORAGE_KEY, JSON.stringify(data));
-      } else {
-        pushToFirestore();
       }
       purgeExpiredTrash();
       if(!session) refreshVisibleView();
@@ -775,18 +779,28 @@
     });
   });
 
+  var lastAuthUid = undefined;
   auth.onAuthStateChanged(function(user){
+    var newUid = user ? user.uid : null;
+    var uidChanged = (newUid !== lastAuthUid);
+    lastAuthUid = newUid;
     currentUser = user;
     setAuthUI(user);
-    // Reset local state immediately so a previous account's cached data is never shown
-    // (or accidentally re-saved) under a different account, even for an instant.
-    data = normalizeData({ lessons: {} });
-    storage.set(STORAGE_KEY, JSON.stringify(data));
-    if(session){ session = null; }
+    if(uidChanged){
+      // Reset local state only when actually switching accounts, so a previous
+      // account's cached data is never shown (or accidentally re-saved) under a
+      // different account. A redundant auth event for the SAME user (token
+      // refresh, tab refocus, etc.) must never wipe in-memory data.
+      data = normalizeData({ lessons: {} });
+      storage.set(STORAGE_KEY, JSON.stringify(data));
+      if(session){ session = null; }
+    }
     if(user){
-      showView('view-dashboard');
-      document.getElementById('view-dashboard').innerHTML = '<div class="empty"><strong>Chargement de tes fiches...</strong></div>';
-      subscribeFirestore(user.uid);
+      if(uidChanged){
+        showView('view-dashboard');
+        document.getElementById('view-dashboard').innerHTML = '<div class="empty"><strong>Chargement de tes fiches...</strong></div>';
+        subscribeFirestore(user.uid);
+      }
     } else {
       if(firestoreState.unsub){ firestoreState.unsub(); firestoreState.unsub = null; }
       showLoggedOutScreen();
@@ -1265,7 +1279,19 @@
       var countPart = o.questionCount
         ? "Génère exactement " + o.questionCount + " flashcards."
         : "Le nombre de flashcards n'est pas plafonné : il doit correspondre à la longueur et à la densité réelle du cours (un cours de 2 pages peut donner 10 cartes, un cours de 15 pages peut en donner 60 ou plus si nécessaire).";
-      contentInstruction = "Je vais te donner un cours brut ou des notes non transformées en questions. Tu génères toi-même les questions/réponses. " + countPart + " Une carte par notion, date, personnage, cause, conséquence ou définition clé. Chaque question doit être précise et vérifiable (pas de question vague type \"Parle de la Révolution\"). " + lengthInstruction + " Tu n'inventes aucune information absente du cours fourni.";
+      contentInstruction = "Je vais te donner un cours brut ou des notes non transformées en questions. Voici comment procéder, MÉTHODE OBLIGATOIRE :\n\n" +
+        "1. Lis et comprends d'abord le cours dans son ensemble, comme si tu allais l'expliquer à quelqu'un — ne travaille pas phrase par phrase de façon mécanique.\n" +
+        "2. Repère ensuite, une par une, chaque information ou notion importante (une date, un personnage, une définition, une cause, une conséquence, une règle, un exemple...).\n" +
+        "3. Pour CHAQUE information repérée, écris une question ET une réponse.\n\n" +
+        countPart + "\n\n" +
+        "RÈGLES DE QUALITÉ OBLIGATOIRES pour chaque carte (très important, à respecter scrupuleusement) :\n\n" +
+        "- AUTONOME : les cartes seront révisées dans le DÉSORDRE (mélangées). Une question ne doit donc JAMAIS dépendre d'une autre carte ni de l'ordre du cours. N'utilise jamais de mots vagues comme \"ça\", \"cela\", \"cet événement\", \"cette notion\" sans préciser explicitement de quoi il s'agit dans la question elle-même.\n" +
+        "  ✗ Mauvais exemple : \"Quelle guerre a débouché sur ça ?\"\n" +
+        "  ✓ Bon exemple : \"Quelle guerre a débouché sur le Congrès de Vienne en 1815 ?\"\n\n" +
+        "- RÉPONSE IMMÉDIATE : la réponse doit pouvoir être donnée du tac au tac, à l'oral, de mémoire — jamais besoin de poser une opération sur papier ou de faire un raisonnement à plusieurs étapes. Pour les maths ou sciences : privilégie les définitions, règles, propriétés ou de très petits calculs évidents pour le niveau indiqué. Une division ou un calcul qui demande d'écrire sur une feuille n'est PAS une bonne flashcard.\n\n" +
+        "- CLAIRE ET SIMPLE : formule chaque question de façon directe et explicite, avec un vocabulaire adapté au niveau \"" + o.level + "\". Si toi-même tu trouves une formulation compliquée ou ambiguë en la relisant, reformule-la plus simplement.\n\n" +
+        lengthInstruction + "\n\n" +
+        "Tu n'inventes aucune information absente du cours fourni.";
     }
 
     var titleVal = o.title || 'DÉDUIS UN TITRE COURT';
@@ -1531,7 +1557,7 @@
         '<div class="quiz-head"><h2>' + esc(lesson.title) + '</h2></div>' +
         '<div class="setup-box">' +
           '<div class="toggle-row"><div><div class="label">Mélanger l\'ordre des cartes</div><div class="desc">Un ordre différent à chaque essai</div></div>' +
-            '<label class="switch"><input type="checkbox" id="opt-shuffle" checked><span class="slider"></span></label></div>' +
+            '<label class="switch"><input type="checkbox" id="opt-shuffle"><span class="slider"></span></label></div>' +
           (hasMisses ?
           '<div class="toggle-row"><div><div class="label">Réviser seulement mes fautes</div><div class="desc">Ne repose que les ' + lastHist.missedCardIds.length + ' cartes ratées au dernier essai</div></div>' +
             '<label class="switch"><input type="checkbox" id="opt-misses"><span class="slider"></span></label></div>' : '') +
