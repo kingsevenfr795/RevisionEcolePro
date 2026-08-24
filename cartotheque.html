@@ -567,12 +567,51 @@
       if(Array.isArray(lesson.cards)){
         lesson.cards.forEach(function(c){
           if(!c.difficulty) c.difficulty = 'normal';
-          if(typeof c.consecutiveFail !== 'number') c.consecutiveFail = 0;
-          if(typeof c.consecutiveSuccess !== 'number') c.consecutiveSuccess = 0;
+          if(typeof c.failCount !== 'number') c.failCount = (typeof c.consecutiveFail === 'number' ? c.consecutiveFail : 0);
+          if(typeof c.successStreak !== 'number') c.successStreak = (typeof c.consecutiveSuccess === 'number' ? c.consecutiveSuccess : 0);
+          delete c.consecutiveFail;
+          delete c.consecutiveSuccess;
         });
       }
     });
     return d;
+  }
+
+  /* ---------- difficulty tracking (per-session, not per-answer) ---------- */
+  // Called once per card per finished session, with that session's FIRST-attempt
+  // result only ('success' or 'fail'). Fails accumulate across sessions and are
+  // NOT wiped out by a single success. Rules:
+  //  - 3 accumulated fails (whenever they happen) -> "difficile"
+  //  - from "difficile": 2 CONSECUTIVE session-successes -> back to "normal" (counters reset)
+  //  - from "normal": 4 CONSECUTIVE session-successes -> "facile"
+  //  - from "facile": any fail -> back to "normal" (fail still counts toward the next difficile)
+  function updateCardDifficultyForSession(card, sessionResult){
+    if(sessionResult === 'fail'){
+      card.failCount = (card.failCount || 0) + 1;
+      card.successStreak = 0;
+    } else if(sessionResult === 'success'){
+      card.successStreak = (card.successStreak || 0) + 1;
+    } else {
+      return;
+    }
+
+    if(card.difficulty === 'difficile'){
+      if(card.successStreak >= 2){
+        card.difficulty = 'normal';
+        card.failCount = 0;
+        card.successStreak = 0;
+      }
+    } else if(card.difficulty === 'facile'){
+      if(sessionResult === 'fail'){
+        card.difficulty = 'normal';
+      }
+    } else {
+      if((card.failCount || 0) >= 3){
+        card.difficulty = 'difficile';
+      } else if(card.successStreak >= 4){
+        card.difficulty = 'facile';
+      }
+    }
   }
   function loadData(){
     var raw = storage.get(STORAGE_KEY);
@@ -852,7 +891,7 @@
         level: pub.level || 'Première',
         title: pub.title,
         subject: pub.subject,
-        cards: (pub.cards || []).map(function(c){ return { id: uid(), q: c.q, a: c.a, difficulty: 'normal', consecutiveFail: 0, consecutiveSuccess: 0 }; }),
+        cards: (pub.cards || []).map(function(c){ return { id: uid(), q: c.q, a: c.a, difficulty: 'normal', failCount: 0, successStreak: 0 }; }),
         history: [],
         trash: [],
         createdAt: Date.now()
@@ -1251,7 +1290,7 @@
       level: document.getElementById('import-level').value || 'Première',
       title: document.getElementById('import-title').value.trim() || 'Leçon sans titre',
       subject: document.getElementById('import-subject').value.trim() || 'Général',
-      cards: importCards.map(function(c){ return { id: uid(), q: c.q, a: c.a, difficulty: 'normal', consecutiveFail: 0, consecutiveSuccess: 0 }; }),
+      cards: importCards.map(function(c){ return { id: uid(), q: c.q, a: c.a, difficulty: 'normal', failCount: 0, successStreak: 0 }; }),
       history: [],
       trash: [],
       createdAt: Date.now()
@@ -1281,7 +1320,7 @@
         : "Le nombre de flashcards n'est pas plafonné : il doit correspondre à la longueur et à la densité réelle du cours (un cours de 2 pages peut donner 10 cartes, un cours de 15 pages peut en donner 60 ou plus si nécessaire).";
       contentInstruction = "Je vais te donner un cours brut ou des notes non transformées en questions. Voici comment procéder, MÉTHODE OBLIGATOIRE :\n\n" +
         "1. Lis et comprends d'abord le cours dans son ensemble, comme si tu allais l'expliquer à quelqu'un — ne travaille pas phrase par phrase de façon mécanique.\n" +
-        "2. Repère ensuite, une par une, chaque information ou notion importante (une date, un personnage, une définition, une cause, une conséquence, une règle, un exemple...).\n" +
+        "2. Repère ensuite, une par une, TOUTES les informations du cours, même celles qui te semblent mineures ou secondaires — ne filtre pas selon ce qui te paraît important : une date, un personnage, une définition, une cause, une conséquence, une règle, un exemple, un chiffre, un nom propre, un détail... Si c'est écrit dans le cours, ça mérite sa propre carte.\n" +
         "3. Pour CHAQUE information repérée, écris une question ET une réponse.\n\n" +
         countPart + "\n\n" +
         "RÈGLES DE QUALITÉ OBLIGATOIRES pour chaque carte (très important, à respecter scrupuleusement) :\n\n" +
@@ -1759,14 +1798,6 @@
     }
 
     var card = cardById(cardId);
-    if(session.difficultyTracking && card){
-      if(success){ card.consecutiveSuccess = (card.consecutiveSuccess || 0) + 1; card.consecutiveFail = 0; }
-      else { card.consecutiveFail = (card.consecutiveFail || 0) + 1; card.consecutiveSuccess = 0; }
-      if(card.consecutiveFail >= 3) card.difficulty = 'difficile';
-      else if(card.consecutiveSuccess >= 5) card.difficulty = 'facile';
-      else card.difficulty = 'normal';
-    }
-
     if(success){
       session.mastered[cardId] = true;
       if(session.difficultyTracking && card && card.difficulty === 'difficile' && !session.bonusRepeated[cardId]){
@@ -1785,8 +1816,13 @@
     var score = 0;
     var missedCardIds = [];
     Object.keys(session.results).forEach(function(id){
-      if(session.results[id] === 'success') score++;
-      else if(session.results[id] === 'fail') missedCardIds.push(id);
+      var result = session.results[id];
+      if(result === 'success') score++;
+      else if(result === 'fail') missedCardIds.push(id);
+      if(session.difficultyTracking && result){
+        var card = cardById(id);
+        if(card) updateCardDifficultyForSession(card, result);
+      }
     });
     var entry = { date: new Date().toISOString(), score: score, total: session.total, mode: session.mode, missedCardIds: missedCardIds };
     lesson.history.push(entry);
@@ -1973,11 +2009,12 @@
         if(!card) return;
         if(card.difficulty === 'difficile'){
           card.difficulty = 'normal';
-          card.consecutiveFail = 0;
+          card.failCount = 0;
+          card.successStreak = 0;
         } else {
           card.difficulty = 'difficile';
-          card.consecutiveFail = 3;
-          card.consecutiveSuccess = 0;
+          card.failCount = 3;
+          card.successStreak = 0;
         }
         saveData();
         renderManage(lessonId);
