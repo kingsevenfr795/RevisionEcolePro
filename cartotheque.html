@@ -95,6 +95,12 @@
   }
   .dropdown-item:last-child{border-bottom:none;}
   .dropdown-item:hover{background:var(--rule);}
+  .stat-bar-row{display:flex;align-items:center;gap:12px;margin-bottom:12px;}
+  .stat-bar-label{width:130px;font-family:var(--font-mono);font-size:12px;color:var(--ink-soft);flex-shrink:0;}
+  .stat-bar-track{flex:1;height:16px;background:var(--rule);border-radius:8px;overflow:hidden;}
+  .stat-bar-fill{height:100%;border-radius:8px;transition:width .4s ease;}
+  .stat-bar-value{width:76px;text-align:right;font-family:var(--font-mono);font-size:12px;color:var(--ink);flex-shrink:0;}
+  .legend-dot{width:10px;height:10px;border-radius:50%;display:inline-block;}
   .radio-row{display:flex;align-items:center;gap:8px;padding:8px 0;font-size:14.5px;}
   .radio-row input{accent-color:var(--accent-teal);width:16px;height:16px;}
   .radio-row label{cursor:pointer;}
@@ -379,6 +385,7 @@
     <div class="dropdown" id="tools-dropdown" style="display:none;">
       <button class="btn ghost" id="btn-tools-toggle">⚙️ Outils ▾</button>
       <div class="dropdown-menu" id="tools-menu">
+        <button class="dropdown-item" id="btn-stats">📊 Statistiques détaillées</button>
         <button class="dropdown-item" id="btn-planner">📅 Planifie tes révisions</button>
         <button class="dropdown-item" id="btn-library">🌍 Bibliothèque partagée</button>
         <button class="dropdown-item" id="btn-ideas">💡 Boîte à idées</button>
@@ -406,6 +413,8 @@
   <div id="view-trash" class="view"></div>
 
   <div id="view-lessons-trash" class="view"></div>
+
+  <div id="view-stats" class="view"></div>
 
   <div id="view-ai-generator" class="view"></div>
 </main>
@@ -536,6 +545,9 @@
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-auth-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore-compat.js"></script>
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.css">
+<script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.js"></script>
+<script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/contrib/auto-render.min.js"></script>
 <script>
 (function(){
   "use strict";
@@ -561,6 +573,15 @@
     if(!d || typeof d !== 'object') d = { lessons: {} };
     if(!d.lessons) d.lessons = {};
     if(!Array.isArray(d.trash)) d.trash = [];
+    if(!d.stats || typeof d.stats !== 'object') d.stats = {};
+    if(!d.stats.attemptBuckets || typeof d.stats.attemptBuckets !== 'object'){
+      d.stats.attemptBuckets = { '1': {success:0, fail:0}, '2': {success:0, fail:0}, '3': {success:0, fail:0}, '4+': {success:0, fail:0} };
+    }
+    ['1','2','3','4+'].forEach(function(k){
+      if(!d.stats.attemptBuckets[k]) d.stats.attemptBuckets[k] = {success:0, fail:0};
+      if(typeof d.stats.attemptBuckets[k].success !== 'number') d.stats.attemptBuckets[k].success = 0;
+      if(typeof d.stats.attemptBuckets[k].fail !== 'number') d.stats.attemptBuckets[k].fail = 0;
+    });
     Object.keys(d.lessons).forEach(function(id){
       var lesson = d.lessons[id];
       if(!Array.isArray(lesson.trash)) lesson.trash = [];
@@ -860,6 +881,146 @@
   });
 
   /* ---------- shared library (admin-published lessons, everyone can copy) ---------- */
+  /* ---------- detailed stats page ---------- */
+  function computeAttemptStats(){
+    var buckets = data.stats.attemptBuckets;
+    var order = ['1','2','3','4+'];
+    var labels = { '1':'1er essai', '2':'2e essai', '3':'3e essai', '4+':'4e essai ou +' };
+    return order.map(function(k){
+      var b = buckets[k];
+      var total = b.success + b.fail;
+      return { label: labels[k], pct: total ? Math.round(b.success/total*100) : null, total: total };
+    });
+  }
+  function computeSubjectStats(){
+    var bySubject = {};
+    Object.keys(data.lessons).forEach(function(id){
+      var l = data.lessons[id];
+      var subj = l.subject || 'Général';
+      l.history.forEach(function(h){
+        if(!bySubject[subj]) bySubject[subj] = { sum: 0, count: 0 };
+        bySubject[subj].sum += (h.score / h.total) * 100;
+        bySubject[subj].count++;
+      });
+    });
+    return Object.keys(bySubject).map(function(s){
+      return { label: s, pct: Math.round(bySubject[s].sum / bySubject[s].count), count: bySubject[s].count };
+    }).sort(function(a, b){ return b.pct - a.pct; });
+  }
+  function computeDifficultyBreakdown(){
+    var counts = { normal: 0, difficile: 0, facile: 0 };
+    Object.keys(data.lessons).forEach(function(id){
+      data.lessons[id].cards.forEach(function(c){
+        var d2 = c.difficulty || 'normal';
+        counts[d2] = (counts[d2] || 0) + 1;
+      });
+    });
+    return counts;
+  }
+  function computeHardestCards(limit){
+    var all = [];
+    Object.keys(data.lessons).forEach(function(id){
+      var l = data.lessons[id];
+      l.cards.forEach(function(c){
+        if(c.difficulty === 'difficile'){
+          all.push({ q: c.q, lesson: l.title, subject: l.subject, failCount: c.failCount || 0 });
+        }
+      });
+    });
+    all.sort(function(a, b){ return b.failCount - a.failCount; });
+    return all.slice(0, limit || 8);
+  }
+
+  function buildStatBarRows(items, colorVar){
+    if(!items.length) return '<p style="color:var(--ink-soft);font-size:13px;">Pas encore assez de données.</p>';
+    return items.map(function(it){
+      var pctDisplay = (it.pct === null) ? '—' : it.pct + '%';
+      var widthPct = it.pct === null ? 0 : it.pct;
+      return '<div class="stat-bar-row">' +
+        '<div class="stat-bar-label">' + esc(it.label) + '</div>' +
+        '<div class="stat-bar-track"><div class="stat-bar-fill" style="width:' + widthPct + '%;background:' + colorVar + ';"></div></div>' +
+        '<div class="stat-bar-value">' + pctDisplay + (it.total !== undefined ? ' <span style="color:var(--ink-soft);">(' + it.total + ')</span>' : (it.count !== undefined ? ' <span style="color:var(--ink-soft);">(' + it.count + ')</span>' : '')) + '</div>' +
+      '</div>';
+    }).join('');
+  }
+
+  function buildDonutSVG(counts){
+    var total = counts.normal + counts.difficile + counts.facile;
+    if(total === 0) return '<p style="color:var(--ink-soft);font-size:13px;">Aucune carte pour l\'instant.</p>';
+    var r = 54, cx = 70, cy = 70, circumference = 2 * Math.PI * r;
+    var segs = [
+      { key: 'normal', label: 'Normal', color: 'var(--ink-soft)', value: counts.normal },
+      { key: 'difficile', label: 'Difficile', color: 'var(--accent-red)', value: counts.difficile },
+      { key: 'facile', label: 'Facile', color: 'var(--accent-teal)', value: counts.facile }
+    ];
+    var offset = 0;
+    var circles = segs.map(function(s){
+      var frac = s.value / total;
+      var dash = frac * circumference;
+      var circle = '<circle cx="' + cx + '" cy="' + cy + '" r="' + r + '" fill="none" stroke="' + s.color + '" stroke-width="18" ' +
+        'stroke-dasharray="' + dash.toFixed(1) + ' ' + (circumference - dash).toFixed(1) + '" ' +
+        'stroke-dashoffset="' + (-offset).toFixed(1) + '" transform="rotate(-90 ' + cx + ' ' + cy + ')"></circle>';
+      offset += dash;
+      return circle;
+    }).join('');
+    var legend = segs.map(function(s){
+      return '<div style="display:flex;align-items:center;gap:7px;font-family:var(--font-mono);font-size:12.5px;color:var(--ink);margin-bottom:6px;">' +
+        '<span class="legend-dot" style="background:' + s.color + ';"></span>' + s.label + ' — ' + s.value + '</div>';
+    }).join('');
+    return '<div style="display:flex;align-items:center;gap:28px;flex-wrap:wrap;">' +
+      '<svg width="140" height="140" viewBox="0 0 140 140">' + circles + '</svg>' +
+      '<div>' + legend + '</div>' +
+    '</div>';
+  }
+
+  function renderStatsPage(){
+    var root = document.getElementById('view-stats');
+    var attemptStats = computeAttemptStats();
+    var subjectStats = computeSubjectStats();
+    var diffCounts = computeDifficultyBreakdown();
+    var hardest = computeHardestCards(8);
+
+    var hardestHtml = hardest.length
+      ? hardest.map(function(h){
+          return '<div class="manage-row"><div class="qa"><div class="q">' + esc(h.q) + '</div><div class="a">' + esc(h.lesson) + ' · ' + esc(h.subject) + '</div></div>' +
+            '<span class="badge badge-review" style="align-self:center;">' + h.failCount + ' échec(s)</span></div>';
+        }).join('')
+      : '<p style="color:var(--ink-soft);font-size:13px;">Aucune carte difficile pour l\'instant — bravo !</p>';
+
+    root.innerHTML =
+      '<div class="quiz-wrap" style="max-width:760px;">' +
+        '<button class="back-link" id="stats-back">← Retour au tableau de bord</button>' +
+        '<div class="quiz-head"><h2>📊 Statistiques détaillées</h2></div>' +
+
+        '<div class="chart-wrap">' +
+          '<h4>Taux de réussite par essai</h4>' +
+          '<p class="hint" style="margin:0 0 12px;">Une carte ratée revient plus tard dans la même session — voici ton taux de réussite selon que c\'était la 1ère fois que tu la voyais ce jour-là, ou une reprise.</p>' +
+          buildStatBarRows(attemptStats, 'var(--accent-teal)') +
+        '</div>' +
+
+        '<div class="chart-wrap" style="margin-top:18px;">' +
+          '<h4>Taux de réussite par matière</h4>' +
+          buildStatBarRows(subjectStats, 'var(--accent-gold)') +
+        '</div>' +
+
+        '<div class="chart-wrap" style="margin-top:18px;">' +
+          '<h4>Répartition de tes cartes</h4>' +
+          buildDonutSVG(diffCounts) +
+        '</div>' +
+
+        '<div class="chart-wrap" style="margin-top:18px;">' +
+          '<h4>Cartes les plus difficiles</h4>' +
+          hardestHtml +
+        '</div>' +
+      '</div>';
+
+    document.getElementById('stats-back').addEventListener('click', function(){ showView('view-dashboard'); renderDashboard(); });
+  }
+  document.getElementById('btn-stats').addEventListener('click', function(){
+    renderStatsPage();
+    showView('view-stats');
+  });
+
   function loadLibrary(){
     var listEl = document.getElementById('library-list');
     listEl.innerHTML = '<p style="color:var(--ink-soft);font-size:13px;">Chargement...</p>';
@@ -1002,6 +1163,19 @@
     return String(s).replace(/[&<>"']/g, function(c){
       return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c];
     });
+  }
+  function renderMathIn(el){
+    try{
+      if(window.renderMathInElement && el){
+        window.renderMathInElement(el, {
+          delimiters: [
+            { left: "$$", right: "$$", display: true },
+            { left: "$", right: "$", display: false }
+          ],
+          throwOnError: false
+        });
+      }
+    }catch(e){}
   }
   function showView(id){
     document.querySelectorAll('.view').forEach(function(v){ v.classList.remove('active'); });
@@ -1350,8 +1524,12 @@
 
     var notePart = o.note ? "\n\nNote supplémentaire de ma part, à respecter en priorité : " + o.note : "";
 
+    var markerNote = "\n\nSi mon texte contient des marqueurs entre crochets issus d'une transcription (par exemple [illisible], [SCHÉMA], [ANNOTATION: ...], [PARTIE COUPÉE], [mot incertain: ...], ou des en-têtes \"PAGE 1\", \"PAGE 2\"...), ce ne sont PAS du contenu de cours : ignore-les et ne crée jamais de carte à partir d'eux. Utilise uniquement le vrai texte du cours qu'ils encadrent.";
+
+    var mathNote = "\n\nSi le cours contient des maths, de la physique ou de la chimie, écris toute expression mathématique (fractions, exposants, indices, racines, symboles) en syntaxe LaTeX entourée de $ (par exemple $x^2$, $\\frac{a}{b}$, $\\sqrt{2}$, $H_2O$) plutôt qu'en texte brut, pour qu'elle s'affiche correctement.";
+
     return "Tu es un générateur de fiches de révision pour un élève de " + o.level + ".\n\n" +
-      contentInstruction + notePart + "\n\n" +
+      contentInstruction + notePart + markerNote + mathNote + "\n\n" +
       "Réponds UNIQUEMENT avec un objet JSON valide, sans aucun texte autour, sans balises markdown (pas de ```), respectant EXACTEMENT ce format :\n\n" +
       fieldsPart + titleSubjectNote + "\n\n" +
       "Règle générale : le JSON doit être strictement valide (guillemets doubles, pas de virgule finale, rien avant ni après l'accolade" + (titleSubjectNote ? ", à part l'éventuelle phrase d'avertissement" : "") + ").\n\n" +
@@ -1679,7 +1857,8 @@
       written: opts.written,
       reversed: opts.reversed,
       difficultyTracking: opts.difficultyTracking,
-      bonusRepeated: {}
+      bonusRepeated: {},
+      attemptCounts: {}
     };
     nextCard();
   }
@@ -1693,6 +1872,7 @@
   function nextCard(){
     if(session.queue.length === 0){ finishSession(); return; }
     session.currentCardId = session.queue.shift();
+    session.attemptCounts[session.currentCardId] = (session.attemptCounts[session.currentCardId] || 0) + 1;
     session.shown++;
     session.revealed = false;
     renderQuizCard();
@@ -1765,6 +1945,7 @@
           '</div>' +
           '<p style="font-family:var(--font-mono);font-size:12px;color:var(--ink-soft);margin-top:10px;">' +
           (typed ? 'Ta réponse : ' + esc(typed) : 'Tu n\'as rien écrit.') + '</p>';
+        renderMathIn(document.getElementById('written-reveal-box'));
       } else {
         document.getElementById('flip-card').classList.add('flipped');
       }
@@ -1786,6 +1967,7 @@
         if(e.key === 'Enter' || e.key === ' '){ e.preventDefault(); revealAnswer(); }
       });
     }
+    renderMathIn(root);
   }
 
   function answerCard(success){
@@ -1796,6 +1978,10 @@
     if(session.results[cardId] === null){
       session.results[cardId] = success ? 'success' : 'fail';
     }
+
+    var attemptNum = session.attemptCounts[cardId] || 1;
+    var bucketKey = attemptNum >= 4 ? '4+' : String(attemptNum);
+    data.stats.attemptBuckets[bucketKey][success ? 'success' : 'fail']++;
 
     var card = cardById(cardId);
     if(success){
@@ -1860,6 +2046,7 @@
     document.getElementById('res-dashboard').addEventListener('click', function(){ showView('view-dashboard'); renderDashboard(); });
     document.getElementById('res-history').addEventListener('click', function(){ renderHistory(lesson.id); showView('view-history'); });
     document.getElementById('res-restart').addEventListener('click', function(){ openQuizSetup(lesson.id); });
+    renderMathIn(root);
   }
 
   /* ---------- history ---------- */
@@ -1973,6 +2160,7 @@
     document.getElementById('manage-back').addEventListener('click', function(){ showView('view-dashboard'); renderDashboard(); });
     document.getElementById('manage-trash-link').addEventListener('click', function(){ renderTrash(lessonId); showView('view-trash'); });
     document.getElementById('manage-add-prompt').addEventListener('click', function(){ openPromptModal(buildAddPrompt(lesson)); });
+    renderMathIn(root);
 
     var publishBtn = document.getElementById('manage-publish-toggle');
     if(publishBtn){
